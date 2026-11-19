@@ -6,9 +6,11 @@ import { CheckPage } from "./CheckPage";
 import { CurriculumMapPage } from "./CurriculumMapPage";
 import { AnswerPage } from "./AnswerPage";
 
-export function Worksheet({ data, includeAnswers }: { data: AnalysisResult; includeAnswers: boolean }) {
+/** code: 학습지 코드. 페이지 머리에 인쇄되어, 푼 뒤 채점할 때 이 학습지를 찾는 데 쓴다. */
+export function Worksheet({ data, includeAnswers, code }: { data: AnalysisResult; includeAnswers: boolean; code?: string }) {
   const unit = getUnit(data.mapping.unitId);
-  const unitLabel = unit ? `${semesterLabel(unit.grade, unit.semester)} · ${unit.title} · ${data.mapping.subtopic}` : data.mapping.subtopic;
+  const base = unit ? `${semesterLabel(unit.grade, unit.semester)} · ${unit.title} · ${data.mapping.subtopic}` : data.mapping.subtopic;
+  const unitLabel = code ? `${base} · 학습지 코드 ${code}` : base;
   return (
     <div className="worksheet">
       <TwinPage data={data} unitLabel={unitLabel} />

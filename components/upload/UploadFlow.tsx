@@ -30,8 +30,8 @@ export function UploadFlow() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
 
   const finish = (data: AnalysisResult) => {
-    saveWorksheet(data);
-    router.push("/worksheet");
+    const saved = saveWorksheet(data);
+    router.push(`/worksheet?id=${saved.id}`);
   };
 
   async function onFile(file: File | undefined) {
@@ -81,7 +81,7 @@ export function UploadFlow() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
+    <main className="mx-auto max-w-2xl px-6 py-10">
       <h1 className="mb-2 text-2xl font-bold">오답 쌍둥이 문제 학습지</h1>
       <p className="mb-8 text-slate-600">
         틀린 문제 사진을 올리면 교육과정 단원을 찾아 쌍둥이 문제 2개, 개념 설명, 개념 확인 문제, 교육과정 맵을 만들어 드립니다.

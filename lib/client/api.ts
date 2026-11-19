@@ -1,4 +1,4 @@
-import type { AnalysisResult, RecognizedProblem, RecognizeResult } from "@/lib/schemas";
+import type { AnalysisResult, GradeResult, RecognizedProblem, RecognizeResult } from "@/lib/schemas";
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   let res: Response;
@@ -18,5 +18,10 @@ export function recognize(image: string): Promise<RecognizeResult> {
 
 export async function analyze(problem: RecognizedProblem, image?: string, forcedUnitId?: string): Promise<AnalysisResult> {
   const { result } = await postJson<{ result: AnalysisResult }>("/api/analyze", { problem, image, forcedUnitId });
+  return result;
+}
+
+export async function grade(worksheet: AnalysisResult, images: string[]): Promise<GradeResult> {
+  const { result } = await postJson<{ result: GradeResult }>("/api/grade", { worksheet, images });
   return result;
 }

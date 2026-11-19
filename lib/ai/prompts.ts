@@ -1,5 +1,6 @@
-import type { Curriculum, RecognizedProblem } from "@/lib/schemas";
+import type { AnalysisResult, Curriculum, RecognizedProblem } from "@/lib/schemas";
 import { semesterLabel } from "@/lib/curriculum";
+import { gradableProblems } from "@/lib/grade";
 
 const LATEX_RULES = `수식 표기 규칙:
 - 모든 수식·문자·숫자식은 $...$ 안에 LaTeX로 쓴다. 예: $3(x-2)=2x+5$, $\\frac{1}{2}$, $\\sqrt{3}$, $x^2$
@@ -49,6 +50,45 @@ ${curriculumListText(data)}
 - 모든 글은 한국어로 쓴다.
 
 ${LATEX_RULES}`;
+}
+
+export const GRADE_SYSTEM = `당신은 한국 중학교 수학 교사입니다. 학생이 인쇄한 학습지에 직접 푼 사진을 보고 문제마다 채점하고 첨삭합니다.
+
+## 채점 방법
+1. 사진에서 각 문제를 찾는다. 학습지는 "쌍둥이 문제" 페이지(1~2번)와 "개념 확인 문제" 페이지(1~5번)로 되어 있다. 페이지 제목과 문제 내용으로 어느 문제인지 맞춘다.
+2. 학생의 손글씨 풀이를 줄 단위로 studentWork에, 최종 답을 studentAnswer에 옮긴다.
+3. 주어진 정답 기준으로 판정한다. 같은 값의 다른 표현($x=14$, $14$, $14$개, 약분 전후)은 같은 답으로 인정한다.
+   - correct: 답이 맞고 풀이도 타당함
+   - partial: 풀이 흐름은 맞는데 사소한 계산 실수로 답이 틀렸거나, 답은 맞았지만 풀이에 오류·비약이 있음
+   - wrong: 개념이나 방법이 틀림
+   - blank: 풀이 칸이 비어 있음
+   - not_found: 사진에 그 문제가 없거나 글씨를 읽을 수 없음
+4. 틀린 경우 errorStep에 학생이 처음 틀린 줄을 그대로 옮기고 무엇이 왜 틀렸는지 쓴다.
+5. explanation에는 학생 풀이의 흐름을 살려 바른 풀이를 한 줄에 한 단계씩 쓴다. 맞은 문제는 핵심 포인트나 더 빠른 방법을 짧게 쓴다.
+6. feedback은 격려하되 정확하게 쓴다. 틀렸는데 맞았다고 하지 않는다.
+7. 학생이 원래 틀렸던 실수(아래 "원래 오답의 실수")를 또 했는지 특히 살핀다.
+8. 정답지의 정답이 틀렸다고 판단되면 학생 답을 기준으로 다시 확인하고 photoNote에 알린다.
+
+## 공통 규칙
+- 해당 학년까지 배운 개념만 쓴다. 고등학교 개념·용어 금지.
+- 모든 글은 한국어, 학생에게 말하듯 존댓말로 쓴다.
+
+${LATEX_RULES}`;
+
+export function gradeUserText(data: AnalysisResult): string {
+  const lines = [
+    `## 학습지 개념: ${data.concept.title}`,
+    `## 원래 오답의 실수: ${data.errorPoint}`,
+    "",
+    "## 문제와 정답",
+  ];
+  for (const { id, label, problem } of gradableProblems(data)) {
+    lines.push("", `### [${id}] ${label}`, problem.text);
+    if (problem.choices?.length) lines.push(`보기: ${problem.choices.map((c, i) => `${i + 1}) ${c}`).join("  ")}`);
+    lines.push(`정답: ${problem.answer}`, `모범 풀이: ${problem.solution}`);
+  }
+  lines.push("", "첨부한 사진은 학생이 이 학습지를 직접 푼 것입니다. 문제마다 채점해 주세요.");
+  return lines.join("\n");
 }
 
 export function analyzeUserText(problem: RecognizedProblem, forcedUnitId?: string): string {

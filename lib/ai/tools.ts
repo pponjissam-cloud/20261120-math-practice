@@ -70,6 +70,40 @@ export const recognizeTool: Anthropic.Tool = {
   },
 };
 
+/** 학습지 풀이 사진 채점. problemId는 학습지에 실제로 있는 문제만 고르게 한다. */
+export function buildGradeTool(problemIds: string[]): Anthropic.Tool {
+  return {
+    name: "report_grading",
+    description: "학생이 학습지에 직접 푼 풀이를 채점하고 첨삭한 결과를 보고한다.",
+    input_schema: {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              problemId: { type: "string", enum: problemIds },
+              status: { type: "string", enum: ["correct", "partial", "wrong", "blank", "not_found"] },
+              studentAnswer: { type: "string", description: "학생이 쓴 최종 답(LaTeX)" },
+              studentWork: { type: "string", description: "학생 손글씨 풀이를 줄 단위로 옮긴 것(LaTeX, 줄바꿈 \\n)" },
+              errorStep: { type: "string", description: "처음 틀린 줄과 무엇이 왜 틀렸는지. 맞았으면 생략" },
+              feedback: { type: "string", description: "학생에게 하는 말 1~2문장" },
+              explanation: { type: "string", description: "단계별 바른 풀이(줄바꿈 \\n)" },
+              tip: { type: "string", description: "기억할 개념 한 줄" },
+            },
+            required: ["problemId", "status", "feedback", "explanation"],
+          },
+        },
+        summary: { type: "string", description: "전체 총평 2~3문장" },
+        nextStep: { type: "string", description: "다음에 무엇을 공부하면 좋을지" },
+        photoNote: { type: "string", description: "사진이 흐림·잘림, 정답지가 의심스러움 등 알릴 점" },
+      },
+      required: ["items", "summary", "nextStep"],
+    },
+  };
+}
+
 /** 단원 id를 교육과정 목록 안에서만 고르도록 enum으로 제한한다. */
 export function buildAnalyzeTool(data: Curriculum): Anthropic.Tool {
   const unitIds = data.units.map((u) => u.id);

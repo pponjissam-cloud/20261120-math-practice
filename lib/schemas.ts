@@ -81,6 +81,30 @@ export const RecognizeResultSchema = z.object({
   problems: z.array(RecognizedProblemSchema),
 });
 
+/** 학습지 풀이 사진 채점 결과 — 문제 하나. problemId는 "T1"(쌍둥이 1번), "C2"(확인 2번) 형식. */
+export const GradeItemSchema = z.object({
+  problemId: z.string(),
+  status: z.enum(["correct", "partial", "wrong", "blank", "not_found"]),
+  studentAnswer: z.string().optional(),
+  /** 학생 손글씨 풀이를 옮겨 적은 것 */
+  studentWork: z.string().optional(),
+  /** 처음 틀린 지점과 이유 */
+  errorStep: z.string().optional(),
+  feedback: z.string(),
+  /** 단계별 바른 풀이 설명 */
+  explanation: z.string(),
+  tip: z.string().optional(),
+});
+
+export const GradeResultSchema = z.object({
+  items: z.array(GradeItemSchema),
+  summary: z.string(),
+  nextStep: z.string(),
+  photoNote: z.string().optional(),
+});
+
+export type GradeItem = z.infer<typeof GradeItemSchema>;
+export type GradeResult = z.infer<typeof GradeResultSchema>;
 export type RecognizedProblem = z.infer<typeof RecognizedProblemSchema>;
 export type RecognizeResult = z.infer<typeof RecognizeResultSchema>;
 export type FigureSpec = z.infer<typeof FigureSpecSchema>;
