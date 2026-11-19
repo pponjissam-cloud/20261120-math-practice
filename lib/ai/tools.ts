@@ -1,0 +1,132 @@
+import type Anthropic from "@anthropic-ai/sdk";
+import type { Curriculum } from "@/lib/schemas";
+
+// tool input_schema(JSON Schema). lib/schemas.ts의 zod 스키마와 모양을 맞춰야 한다.
+
+const figure = {
+  type: "object",
+  description: "도형이 있을 때만. 좌표는 수학 좌표계(y 위쪽), 대략적인 비율이면 충분.",
+  properties: {
+    type: { type: "string", enum: ["triangle", "polygon", "circle", "coordinate", "solid"] },
+    points: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { label: { type: "string" }, x: { type: "number" }, y: { type: "number" } },
+        required: ["label", "x", "y"],
+      },
+    },
+    segments: { type: "array", items: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 2 } },
+    labels: {
+      type: "array",
+      items: { type: "object", properties: { text: { type: "string" }, at: { type: "string" } }, required: ["text", "at"] },
+    },
+    circle: {
+      type: "object",
+      properties: { cx: { type: "number" }, cy: { type: "number" }, r: { type: "number" } },
+      required: ["cx", "cy", "r"],
+    },
+  },
+  required: ["type"],
+};
+
+const problem = {
+  type: "object",
+  properties: {
+    text: { type: "string", description: "문제 본문. 수식은 $...$ LaTeX" },
+    choices: { type: "array", items: { type: "string" }, description: "객관식 보기(번호 기호 제외). 주관식이면 생략" },
+    answer: { type: "string" },
+    solution: { type: "string", description: "중학생이 따라올 수 있는 단계별 풀이" },
+    difficulty: { type: "integer", enum: [1, 2, 3] },
+    figure,
+  },
+  required: ["text", "answer", "solution", "difficulty"],
+};
+
+export const recognizeTool: Anthropic.Tool = {
+  name: "report_recognized_problems",
+  description: "사진에서 읽어 낸 수학 문제를 보고한다.",
+  input_schema: {
+    type: "object",
+    properties: {
+      quality: { type: "string", enum: ["good", "blurry", "no_problem"] },
+      note: { type: "string", description: "흐림·잘림 등 사용자에게 알릴 점" },
+      problems: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            number: { type: "string", description: "문제 번호가 보이면" },
+            text: { type: "string" },
+            choices: { type: "array", items: { type: "string" } },
+            figure,
+            studentWork: { type: "string", description: "학생이 쓴 풀이·답·채점 표시" },
+          },
+          required: ["text"],
+        },
+      },
+    },
+    required: ["quality", "problems"],
+  },
+};
+
+/** 단원 id를 교육과정 목록 안에서만 고르도록 enum으로 제한한다. */
+export function buildAnalyzeTool(data: Curriculum): Anthropic.Tool {
+  const unitIds = data.units.map((u) => u.id);
+  return {
+    name: "create_worksheet",
+    description: "오답 분석 결과와 학습지 내용을 만든다.",
+    input_schema: {
+      type: "object",
+      properties: {
+        original: {
+          type: "object",
+          properties: {
+            text: { type: "string" },
+            choices: { type: "array", items: { type: "string" } },
+            answer: { type: "string" },
+            solution: { type: "string" },
+            figure,
+          },
+          required: ["text", "answer", "solution"],
+        },
+        mapping: {
+          type: "object",
+          properties: {
+            unitId: { type: "string", enum: unitIds },
+            subtopic: { type: "string", description: "선택한 단원의 subtopics 중 하나" },
+            confidence: { type: "number", minimum: 0, maximum: 1 },
+            reason: { type: "string", description: "판단 근거 1문장" },
+            relatedUnitIds: { type: "array", items: { type: "string", enum: unitIds } },
+            candidates: {
+              type: "array",
+              maxItems: 3,
+              description: "confidence가 0.8 미만일 때 다른 후보 단원",
+              items: {
+                type: "object",
+                properties: { unitId: { type: "string", enum: unitIds }, confidence: { type: "number", minimum: 0, maximum: 1 } },
+                required: ["unitId", "confidence"],
+              },
+            },
+          },
+          required: ["unitId", "subtopic", "confidence", "reason", "relatedUnitIds"],
+        },
+        errorPoint: { type: "string" },
+        twins: { type: "array", items: problem, minItems: 2, maxItems: 2 },
+        concept: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            summary: { type: "string" },
+            keyFormulas: { type: "array", items: { type: "string" } },
+            commonMistakes: { type: "array", items: { type: "string" } },
+            example: problem,
+          },
+          required: ["title", "summary", "keyFormulas", "commonMistakes", "example"],
+        },
+        checkProblems: { type: "array", items: problem, minItems: 3, maxItems: 5 },
+      },
+      required: ["original", "mapping", "errorPoint", "twins", "concept", "checkProblems"],
+    },
+  };
+}

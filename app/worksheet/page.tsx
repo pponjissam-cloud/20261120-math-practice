@@ -1,9 +1,9 @@
 import sample from "@/tests/fixtures/sample-analysis.json";
 import { AnalysisResultSchema } from "@/lib/schemas";
-import { WorksheetView } from "./WorksheetView";
+import { WorksheetLoader } from "./WorksheetLoader";
 
 export default function WorksheetPage() {
-  // Phase 1: 픽스처 데이터. Phase 2부터 /api/analyze 결과로 교체한다.
-  const data = AnalysisResultSchema.parse(sample);
-  return <WorksheetView data={data} />;
+  // 분석 결과가 없을 때(또는 ?sample=1) 보여 줄 샘플
+  const fallback = AnalysisResultSchema.parse(sample);
+  return <WorksheetLoader sample={fallback} />;
 }

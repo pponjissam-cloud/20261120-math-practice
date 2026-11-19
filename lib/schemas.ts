@@ -33,6 +33,8 @@ export const AnalysisResultSchema = z.object({
     subtopic: z.string(),
     confidence: z.number().min(0).max(1),
     reason: z.string(),
+    /** 신뢰도가 낮을 때 사용자에게 보여 줄 다른 후보 단원(최대 3개). */
+    candidates: z.array(z.object({ unitId: z.string(), confidence: z.number().min(0).max(1) })).max(3).optional(),
     relatedUnitIds: z.array(z.string()),
   }),
   errorPoint: z.string(),
@@ -63,6 +65,24 @@ export const CurriculumSchema = z.object({
   units: z.array(UnitSchema),
 });
 
+/** 사진에서 읽어 낸 문제 한 개. 사용자가 확인·수정한 뒤 분석 단계로 넘긴다. */
+export const RecognizedProblemSchema = z.object({
+  number: z.string().optional(),
+  text: z.string().min(1),
+  choices: z.array(z.string()).optional(),
+  figure: FigureSpecSchema.optional(),
+  /** 학생이 쓴 풀이·답·채점 표시. 문제 본문과 분리한다. */
+  studentWork: z.string().optional(),
+});
+
+export const RecognizeResultSchema = z.object({
+  quality: z.enum(["good", "blurry", "no_problem"]),
+  note: z.string().optional(),
+  problems: z.array(RecognizedProblemSchema),
+});
+
+export type RecognizedProblem = z.infer<typeof RecognizedProblemSchema>;
+export type RecognizeResult = z.infer<typeof RecognizeResultSchema>;
 export type FigureSpec = z.infer<typeof FigureSpecSchema>;
 export type Problem = z.infer<typeof ProblemSchema>;
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
