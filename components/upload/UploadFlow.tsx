@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AnalysisResult, RecognizedProblem } from "@/lib/schemas";
 import { resizeImage } from "@/lib/client/image";
-import { analyze, recognize } from "@/lib/client/api";
+import { analyze, recognize, verifySafe } from "@/lib/client/api";
 import { saveWorksheet } from "@/lib/client/storage";
 import { getUnit, semesterLabel } from "@/lib/curriculum";
 import { LOW_CONFIDENCE } from "@/lib/ai/analyze";
 import { MathText } from "@/components/math/MathText";
 
-type Step = "upload" | "recognizing" | "review" | "analyzing" | "pickUnit";
+type Step = "upload" | "recognizing" | "review" | "analyzing" | "verifying" | "pickUnit";
 
 const unitName = (id: string) => {
   const u = getUnit(id);
@@ -29,8 +29,10 @@ export function UploadFlow() {
   const [notice, setNotice] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
 
-  const finish = (data: AnalysisResult) => {
-    const saved = saveWorksheet(data);
+  const finish = async (data: AnalysisResult) => {
+    setStep("verifying");
+    const verified = await verifySafe(data);
+    const saved = saveWorksheet(verified);
     router.push(`/worksheet?id=${saved.id}`);
   };
 
@@ -100,11 +102,13 @@ export function UploadFlow() {
         </>
       )}
 
-      {(step === "recognizing" || step === "analyzing") && (
+      {(step === "recognizing" || step === "analyzing" || step === "verifying") && (
         <div className="rounded-xl bg-white p-10 text-center" aria-live="polite">
           <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-          <p className="font-semibold">{step === "recognizing" ? "사진에서 문제를 읽고 있어요…" : "단원을 찾고 학습지를 만들고 있어요…"}</p>
-          {step === "analyzing" && <p className="mt-1 text-sm text-slate-500">1분 정도 걸릴 수 있습니다.</p>}
+          <p className="font-semibold">
+            {step === "recognizing" ? "사진에서 문제를 읽고 있어요…" : step === "analyzing" ? "단원을 찾고 학습지를 만들고 있어요… (1/2)" : "만든 문제의 정답을 다시 풀어 확인하고 있어요… (2/2)"}
+          </p>
+          {step !== "recognizing" && <p className="mt-1 text-sm text-slate-500">1분 정도 걸릴 수 있습니다.</p>}
         </div>
       )}
 

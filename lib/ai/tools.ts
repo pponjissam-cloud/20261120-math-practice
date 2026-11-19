@@ -70,6 +70,39 @@ export const recognizeTool: Anthropic.Tool = {
   },
 };
 
+export const solveTool: Anthropic.Tool = {
+  name: "report_solution",
+  description: "문제를 직접 풀어 최종 답과 풀이를 보고한다.",
+  input_schema: {
+    type: "object",
+    properties: {
+      solution: { type: "string", description: "단계별 풀이(먼저 쓴다)" },
+      answer: { type: "string", description: "최종 답만. 객관식이면 보기 번호 기호로 시작(예: ③ $x=2$)" },
+    },
+    required: ["solution", "answer"],
+  },
+};
+
+export const adjudicateTool: Anthropic.Tool = {
+  name: "report_verdict",
+  description: "정답지의 답과 다시 푼 답 중 무엇이 맞는지 판정한다.",
+  input_schema: {
+    type: "object",
+    properties: {
+      reasoning: { type: "string", description: "직접 다시 계산한 과정" },
+      verdict: {
+        type: "string",
+        enum: ["key_correct", "key_wrong", "unsure"],
+        description: "key_correct: 정답지가 맞음(두 답이 같은 값인 경우 포함) / key_wrong: 정답지가 틀렸고 바른 답을 확신함 / unsure: 문제 조건이 부족하거나 확신할 수 없음",
+      },
+      answer: { type: "string", description: "key_wrong일 때 바른 최종 답" },
+      solution: { type: "string", description: "key_wrong일 때 바른 단계별 풀이" },
+      note: { type: "string", description: "선생님께 알릴 점 1문장" },
+    },
+    required: ["reasoning", "verdict"],
+  },
+};
+
 /** 학습지 풀이 사진 채점. problemId는 학습지에 실제로 있는 문제만 고르게 한다. */
 export function buildGradeTool(problemIds: string[]): Anthropic.Tool {
   return {

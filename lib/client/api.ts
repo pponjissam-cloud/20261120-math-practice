@@ -21,6 +21,16 @@ export async function analyze(problem: RecognizedProblem, image?: string, forced
   return result;
 }
 
+/** 정답 검증. 실패해도 학습지는 쓸 수 있도록 "검증 실패" 표시만 붙여 돌려준다. */
+export async function verifySafe(worksheet: AnalysisResult): Promise<AnalysisResult> {
+  try {
+    const { result } = await postJson<{ result: AnalysisResult }>("/api/verify", { worksheet });
+    return result;
+  } catch {
+    return { ...worksheet, verification: { checked: 0, corrected: 0, review: 0, failed: true, at: new Date().toISOString() } };
+  }
+}
+
 export async function grade(worksheet: AnalysisResult, images: string[]): Promise<GradeResult> {
   const { result } = await postJson<{ result: GradeResult }>("/api/grade", { worksheet, images });
   return result;

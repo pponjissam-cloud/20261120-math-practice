@@ -45,14 +45,53 @@ ${curriculumListText(data)}
 6. checkProblems: 3~5개. 쉬운 것(개념 자체 확인)부터 원래 문제 수준까지 차례로. 최소 1개는 errorPoint를 직접 겨냥한다.
 
 ## 공통 규칙
-- 모든 문제는 직접 풀어 보고 answer가 맞는지 확인한 뒤 쓴다.
+- 모든 문제는 직접 풀어 보고 answer가 맞는지 확인한 뒤 쓴다. (만든 뒤 별도 검산을 거친다)
+- 객관식 문제의 answer는 보기 번호 기호로 시작한다(예: ③ $x=2$).
 - 해당 학년까지 배운 개념만 쓴다. 고등학교 개념·용어 금지.
 - 모든 글은 한국어로 쓴다.
 
 ${LATEX_RULES}`;
 }
 
-export const GRADE_SYSTEM = `당신은 한국 중학교 수학 교사입니다. 학생이 인쇄한 학습지에 직접 푼 사진을 보고 문제마다 채점하고 첨삭합니다.
+export const SOLVE_SYSTEM = `당신은 한국 중학교 수학 문제를 정확하게 푸는 검산 담당자입니다.
+- 중학교에서 배우는 방법으로 차근차근 풀고, 마지막에 답을 문제에 대입하거나 다른 방법으로 검산한다.
+- answer에는 최종 답만 쓴다. 객관식이면 보기 번호 기호로 시작한다(예: ③ $x=2$).
+- 답이 여러 개면 쉼표로 구분한다(예: $x=1$, $x=3$).
+
+${LATEX_RULES}`;
+
+export function solveUserText(t: { text: string; choices?: string[] }): string {
+  const lines = ["## 문제", t.text];
+  if (t.choices?.length) lines.push("", "보기:", ...t.choices.map((c, i) => `${"①②③④⑤"[i] ?? `${i + 1})`} ${c}`));
+  return lines.join("\n");
+}
+
+export const ADJUDICATE_SYSTEM = `당신은 한국 중학교 수학 문제의 정답을 최종 확인하는 검토 위원입니다.
+한 문제에 대해 정답지의 답(A)과 다른 사람이 따로 푼 답(B)이 다르게 나왔습니다.
+두 풀이를 그대로 믿지 말고, 직접 처음부터 다시 계산해서 판정합니다.
+- A와 B가 표현만 다르고 같은 값이면 key_correct
+- A가 맞으면 key_correct
+- A가 틀렸고 바른 답을 확신하면 key_wrong과 함께 바른 answer, solution을 쓴다(B가 맞다면 B를 다듬어 써도 된다)
+- 문제 조건이 부족하거나 답이 여러 개로 갈리거나 확신할 수 없으면 unsure
+- 객관식이면 answer는 보기 번호 기호로 시작한다.
+
+${LATEX_RULES}`;
+
+export function adjudicateUserText(t: { text: string; choices?: string[]; answer: string; solution: string }, solved: { answer: string; solution: string }): string {
+  return [
+    solveUserText(t),
+    "",
+    "## A. 정답지",
+    `답: ${t.answer}`,
+    `풀이: ${t.solution}`,
+    "",
+    "## B. 따로 푼 결과",
+    `답: ${solved.answer}`,
+    `풀이: ${solved.solution}`,
+  ].join("\n");
+}
+
+export const GRADE_SYSTEM =`당신은 한국 중학교 수학 교사입니다. 학생이 인쇄한 학습지에 직접 푼 사진을 보고 문제마다 채점하고 첨삭합니다.
 
 ## 채점 방법
 1. 사진에서 각 문제를 찾는다. 학습지는 "쌍둥이 문제" 페이지(1~2번)와 "개념 확인 문제" 페이지(1~5번)로 되어 있다. 페이지 제목과 문제 내용으로 어느 문제인지 맞춘다.

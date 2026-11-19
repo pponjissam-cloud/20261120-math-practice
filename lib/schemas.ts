@@ -16,8 +16,19 @@ export const ProblemSchema = z.object({
   solution: z.string().min(1),
   difficulty: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   figure: FigureSpecSchema.optional(),
-  /** Phase 3 정답 검증 루프 결과. true면 "검토 필요" 배지를 표시한다. */
+  /** 정답 검증 결과. true면 "검토 필요" 배지를 표시한다. */
   needsReview: z.boolean().optional(),
+  /** 정답 검증에서 고쳐졌거나 확인이 필요한 이유 */
+  verifyNote: z.string().optional(),
+});
+
+export const VerificationSchema = z.object({
+  checked: z.number(),
+  corrected: z.number(),
+  review: z.number(),
+  /** 검증 자체를 하지 못했을 때(네트워크·설정 오류) */
+  failed: z.boolean().optional(),
+  at: z.string(),
 });
 
 export const AnalysisResultSchema = z.object({
@@ -27,6 +38,8 @@ export const AnalysisResultSchema = z.object({
     answer: z.string(),
     solution: z.string(),
     figure: FigureSpecSchema.optional(),
+    needsReview: z.boolean().optional(),
+    verifyNote: z.string().optional(),
   }),
   mapping: z.object({
     unitId: z.string(),
@@ -47,6 +60,7 @@ export const AnalysisResultSchema = z.object({
     example: ProblemSchema,
   }),
   checkProblems: z.array(ProblemSchema).min(3).max(5),
+  verification: VerificationSchema.optional(),
 });
 
 export const UnitSchema = z.object({
@@ -109,6 +123,7 @@ export type RecognizedProblem = z.infer<typeof RecognizedProblemSchema>;
 export type RecognizeResult = z.infer<typeof RecognizeResultSchema>;
 export type FigureSpec = z.infer<typeof FigureSpecSchema>;
 export type Problem = z.infer<typeof ProblemSchema>;
+export type Verification = z.infer<typeof VerificationSchema>;
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 export type Unit = z.infer<typeof UnitSchema>;
 export type Curriculum = z.infer<typeof CurriculumSchema>;

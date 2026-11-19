@@ -82,6 +82,16 @@ export function getCurrentWorksheet(): SavedWorksheet | null {
   }
 }
 
+/** 학습지 내용을 바꾼다(정답 검증 결과 반영 등). 채점 결과는 유지한다. */
+export function updateWorksheet(id: string, data: AnalysisResult): void {
+  writeAll(readAll().map((w) => (w.id === id ? { ...w, data } : w)));
+}
+
+/** 서버 PDF 생성용: 헤드리스 브라우저의 localStorage에 넣을 값 */
+export function storageSnapshot(saved: SavedWorksheet): Record<string, string> {
+  return { [LIST_KEY]: JSON.stringify([saved]), [CURRENT_KEY]: saved.id };
+}
+
 export function saveGrade(id: string, grade: GradeResult): void {
   writeAll(readAll().map((w) => (w.id === id ? { ...w, grade, gradedAt: new Date().toISOString() } : w)));
 }
