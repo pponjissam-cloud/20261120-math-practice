@@ -77,7 +77,7 @@ export function WorksheetView({ data, code, initialIncludeAnswers = false, onCha
 
       <div className="no-print mx-auto mb-6 max-w-[210mm] space-y-2 px-2 text-sm">
         {message && (
-          <p role="status" className={`rounded p-3 ${message.kind === "error" ? "bg-rose-50 text-rose-800" : "bg-blue-50 text-blue-900"}`}>{message.text}</p>
+          <p role="status" className={`whitespace-pre-line break-words rounded p-3 ${message.kind === "error" ? "bg-rose-50 text-rose-800" : "bg-blue-50 text-blue-900"}`}>{message.text}</p>
         )}
         {v && !v.failed && v.review === 0 && (
           <p className="rounded bg-emerald-50 p-3 text-emerald-900">

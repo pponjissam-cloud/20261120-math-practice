@@ -81,7 +81,7 @@ export function ApiKeyPanel({ onReady }: { onReady?: (ready: boolean) => void })
       </div>
 
       {test.state === "ok" && <p className="mt-2 text-sm text-emerald-800">✅ {test.text}</p>}
-      {test.state === "fail" && <p className="mt-2 text-sm text-rose-700">❌ {test.text}</p>}
+      {test.state === "fail" && <p className="mt-2 whitespace-pre-line break-words text-sm text-rose-700">❌ {test.text}</p>}
 
       {showInput && (
         <div className="mt-3">

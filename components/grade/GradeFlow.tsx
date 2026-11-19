@@ -116,7 +116,7 @@ export function GradeFlow() {
       <h1 className="no-print mb-2 text-2xl font-bold">채점·풀이 설명</h1>
       <p className="no-print mb-6 text-slate-600">인쇄한 학습지에 문제를 다 풀었으면 풀이가 보이게 사진을 찍어 올려 주세요. 문제마다 채점하고, 틀린 곳과 바른 풀이를 설명해 드립니다.</p>
 
-      {error && <div role="alert" className="no-print mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{error}</div>}
+      {error && <div role="alert" className="no-print mb-4 whitespace-pre-line break-words rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{error}</div>}
 
       <section className="no-print mb-6 rounded-xl bg-white p-5 shadow-sm">
         <p className="mb-2 font-semibold">어떤 학습지를 풀었나요?</p>

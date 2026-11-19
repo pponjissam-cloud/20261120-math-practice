@@ -13,14 +13,19 @@ export function toErrorResponse(err: unknown): Response {
   }
   if (err instanceof Anthropic.APIError) {
     const msg = String(err.message ?? "");
+    // Anthropic이 돌려준 거절 이유(키 값은 들어 있지 않음)를 화면에 함께 보여 줘 원인을 알 수 있게 한다
+    const body = (err as unknown as { error?: { error?: { type?: string; message?: string } } }).error;
+    const detail = (body?.error?.message ?? msg.replace(/^\d{3}\s*/, "")).slice(0, 300);
+    console.error("Anthropic API error", err.status, detail);
+    const json = (status: number, error: string) => Response.json({ error: `${error}\n(상세: ${detail || "없음"})` }, { status });
     if (err.status === 401) return json(401, "API 키가 올바르지 않습니다. ⚙ 설정에서 키를 다시 확인해 주세요.");
     if (err.status === 403) return json(403, "이 API 키로는 사용할 수 없는 기능이나 모델입니다. 키 권한을 확인해 주세요.");
-    if (/credit|balance|billing/i.test(msg)) {
+    if (/credit|balance|billing/i.test(`${msg} ${detail}`)) {
       return json(402, "API 크레딧(잔액)이 부족합니다. console.anthropic.com의 Billing에서 충전해 주세요.");
     }
     if (err.status === 404) return json(500, "설정된 Claude 모델을 찾을 수 없습니다. CLAUDE_MODEL 값을 확인해 주세요.");
     if (err.status === 429) return json(429, "요청이 많습니다. 잠시 후 다시 시도해 주세요.");
-    if (err.status === 400) return json(400, "AI가 요청을 처리하지 못했습니다. 사진이나 문제 내용을 확인해 주세요.");
+    if (err.status === 400) return json(400, "Claude API가 요청을 거절했습니다.");
     return json(502, "AI 서비스에 일시적인 문제가 있습니다.");
   }
   console.error(err);

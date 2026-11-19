@@ -109,7 +109,7 @@ export function UploadFlow() {
 
       {error && (
         <div role="alert" className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">
-          <p>{error}</p>
+          <p className="whitespace-pre-line break-words">{error}</p>
           {step === "upload" && /API 키|키가/.test(error) && (
             <Link href="/settings" className="mt-1 inline-block font-semibold underline">⚙ 설정에서 API 키 확인하기</Link>
           )}
