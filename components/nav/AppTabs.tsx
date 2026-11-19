@@ -7,6 +7,7 @@ const TABS = [
   { href: "/", label: "📷 틀린 문제 올리기" },
   { href: "/worksheet", label: "📄 학습지" },
   { href: "/grade", label: "✅ 채점·풀이 설명" },
+  { href: "/settings", label: "⚙ 설정" },
 ];
 
 export function AppTabs() {

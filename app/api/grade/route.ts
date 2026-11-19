@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type Anthropic from "@anthropic-ai/sdk";
-import { callTool, imageBlock } from "@/lib/ai/client";
+import { callTool, imageBlock, userKeyFrom } from "@/lib/ai/client";
 import { GRADE_SYSTEM, gradeUserText } from "@/lib/ai/prompts";
 import { buildGradeTool } from "@/lib/ai/tools";
 import { normalizeGrade } from "@/lib/ai/grade";
@@ -24,6 +24,7 @@ export async function POST(req: Request) {
   if (!body.success) return Response.json({ error: body.error.issues[0]?.message ?? "잘못된 요청입니다." }, { status: 400 });
   const { worksheet, images } = body.data;
 
+  const apiKey = userKeyFrom(req);
   try {
     const tool = buildGradeTool(gradableProblems(worksheet).map((p) => p.id));
     const content: Anthropic.ContentBlockParam[] = [
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
       { type: "text", text: gradeUserText(worksheet) },
     ];
     const result = await withRetry(async () =>
-      normalizeGrade(await callTool({ system: GRADE_SYSTEM, tool, maxTokens: 12000, content }), worksheet),
+      normalizeGrade(await callTool({ system: GRADE_SYSTEM, tool, maxTokens: 12000, content, apiKey }), worksheet),
     );
     return Response.json({ result });
   } catch (err) {

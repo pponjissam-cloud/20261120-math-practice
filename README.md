@@ -24,11 +24,22 @@ Word·PDF로 내보내고 인쇄하는 웹앱입니다. 푼 학습지 사진을 
 ```bash
 npm install
 npm install @anthropic-ai/sdk@latest   # SDK를 최신 버전으로
-cp .env.example .env.local             # ANTHROPIC_API_KEY 입력
+cp .env.example .env.local             # ANTHROPIC_API_KEY 입력 (또는 화면에서 입력)
 npm run dev                            # http://localhost:3000
 npm test
 npm run typecheck
 ```
+
+### Claude API 키 넣는 두 가지 방법
+
+API 키가 없으면 사진 읽기·학습지 만들기·채점이 **하나도 진행되지 않습니다.**
+
+1. **화면에서 입력 (혼자 쓸 때 간편)** — 상단 **⚙ 설정** 또는 첫 화면의 키 입력 창에 `sk-ant-…` 키를 붙여 넣습니다.
+   키는 그 브라우저(localStorage)에만 저장되고, AI 요청 때만 서버를 거쳐 Anthropic으로 전달됩니다(서버에 저장하지 않음).
+2. **서버 환경 변수 (여러 사람이 쓸 때 권장)** — Netlify: Site configuration → Environment variables → `ANTHROPIC_API_KEY` 추가 → 다시 배포.
+   서버 키가 있으면 화면의 키 입력 창은 나오지 않습니다.
+
+키 발급: <https://console.anthropic.com/settings/keys> (결제 수단 등록·크레딧 충전 필요)
 
 ### Word·PDF 다운로드를 위한 설치 (선택)
 
@@ -134,3 +145,6 @@ Claude 호출 수: 학습지 만들기 = 인식 1 + 분석 1 + 검증 8~9(답이
 - 손글씨가 흐리면 채점이 틀릴 수 있습니다. "내 풀이(사진에서 읽은 내용)"를 펼쳐 제대로 읽었는지 확인해 주세요.
 - 학습지는 기기 간에 공유되지 않습니다(Phase 4).
 - 서버 PDF는 Vercel 같은 서버리스 환경에서는 Chromium 실행이 어려울 수 있습니다. 그때는 자동으로 브라우저 인쇄로 대신합니다.
+- **Netlify**: 서버 함수 실행 시간이 기본 10초(요청 시 최대 26초)라서 학습지 만들기·정답 검증·채점이 시간 초과(504)로 끊길 수 있습니다.
+  화면에 "서버 응답 시간이 초과되었습니다 (504)"가 나오면 이 때문입니다.
+- 사진 인식이 실패하면 "문제를 직접 입력하기"로 글만 입력하고 사진은 그림 참고용으로 넘길 수 있습니다.

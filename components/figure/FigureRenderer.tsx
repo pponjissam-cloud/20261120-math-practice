@@ -38,6 +38,11 @@ export function FigureRenderer({ spec, width = 240, height = 180 }: { spec: Figu
         if (!p || !q) return null;
         return <line key={i} x1={tx(p.x)} y1={ty(p.y)} x2={tx(q.x)} y2={ty(q.y)} stroke="black" strokeWidth={1.3} />;
       })}
+      {(spec.dashed ?? []).map(([a, b], i) => {
+        const p = byLabel.get(a), q = byLabel.get(b);
+        if (!p || !q) return null;
+        return <line key={`d${i}`} x1={tx(p.x)} y1={ty(p.y)} x2={tx(q.x)} y2={ty(q.y)} stroke="black" strokeWidth={1} strokeDasharray="4 3" />;
+      })}
       {pts.map((p) => (
         <g key={p.label}>
           <circle cx={tx(p.x)} cy={ty(p.y)} r={2} fill="black" />

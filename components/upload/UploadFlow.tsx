@@ -10,6 +10,7 @@ import { saveWorksheet } from "@/lib/client/storage";
 import { getUnit, semesterLabel } from "@/lib/curriculum";
 import { LOW_CONFIDENCE } from "@/lib/ai/analyze";
 import { MathText } from "@/components/math/MathText";
+import { ApiKeyPanel } from "@/components/settings/ApiKeyPanel";
 
 type Step = "upload" | "recognizing" | "review" | "analyzing" | "verifying" | "pickUnit";
 
@@ -28,6 +29,7 @@ export function UploadFlow() {
   const [draft, setDraft] = useState<RecognizedProblem | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [keyReady, setKeyReady] = useState(true);
 
   const finish = async (data: AnalysisResult) => {
     setStep("verifying");
@@ -57,6 +59,15 @@ export function UploadFlow() {
       setError(e instanceof Error ? e.message : String(e));
       setStep("upload");
     }
+  }
+
+  /** 인식이 실패했을 때: 사진은 분석에 참고용으로 남기고 문제 글은 직접 입력 */
+  function typeManually() {
+    setError(null);
+    setProblems([]);
+    setDraft({ text: "" });
+    setNotice("사진에서 문제를 읽지 못해 직접 입력하는 화면입니다. 그림 내용은 사진을 참고해 분석합니다.");
+    setStep("review");
   }
 
   function selectProblem(i: number) {
@@ -89,15 +100,45 @@ export function UploadFlow() {
         틀린 문제 사진을 올리면 교육과정 단원을 찾아 쌍둥이 문제 2개, 개념 설명, 개념 확인 문제, 교육과정 맵을 만들어 드립니다.
       </p>
 
-      {error && <div role="alert" className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{error}</div>}
+      {step === "upload" && (
+        <div className="mb-6">
+          <ApiKeyPanel compact onReady={setKeyReady} />
+        </div>
+      )}
+
+      {error && (
+        <div role="alert" className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">
+          <p>{error}</p>
+          {step === "upload" && /API 키|키가/.test(error) && (
+            <Link href="/settings" className="mt-1 inline-block font-semibold underline">⚙ 설정에서 API 키 확인하기</Link>
+          )}
+          {step === "upload" && image && !/API 키|키가/.test(error) && (
+            <button type="button" onClick={typeManually} className="mt-2 block rounded border border-rose-300 bg-white px-3 py-1 font-semibold">
+              ✏️ 사진은 그대로 두고 문제를 직접 입력하기
+            </button>
+          )}
+        </div>
+      )}
 
       {step === "upload" && (
         <>
-          <label className="mb-6 block cursor-pointer rounded-xl border-2 border-dashed border-slate-400 bg-white p-10 text-center hover:border-blue-500">
-            <p className="mb-2 text-lg">📷 틀린 문제 사진 올리기</p>
-            <p className="text-sm text-slate-500">한 문제가 크게 보이게 찍으면 가장 정확합니다.</p>
-            <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} />
-          </label>
+          <div className={`mb-6 rounded-xl border-2 border-dashed border-slate-400 bg-white p-8 text-center ${keyReady ? "" : "pointer-events-none opacity-50"}`}>
+            <p className="mb-1 text-lg">📷 틀린 문제 사진 올리기</p>
+            <p className="mb-4 text-sm text-slate-500">한 문제가 크게 보이게 찍으면 가장 정확합니다.</p>
+            <div className="flex justify-center gap-3">
+              <label className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700">
+                카메라로 찍기
+                <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={!keyReady}
+                  onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
+              </label>
+              <label className="cursor-pointer rounded-lg border border-blue-600 px-4 py-2 font-semibold text-blue-700 hover:bg-blue-50">
+                앨범·파일에서 고르기
+                <input type="file" accept="image/*" className="sr-only" disabled={!keyReady}
+                  onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
+              </label>
+            </div>
+            {!keyReady && <p className="mt-3 text-sm text-rose-700">먼저 위에서 Claude API 키를 입력해 주세요.</p>}
+          </div>
           <Link href="/worksheet?sample=1" className="block text-center text-sm text-slate-500 underline">샘플 학습지 미리보기</Link>
         </>
       )}

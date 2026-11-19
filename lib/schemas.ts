@@ -1,21 +1,45 @@
 import { z } from "zod";
 
+/** "AB" 처럼 문자열로 온 선분도 ["A","B"]로 받아 준다. */
+const SegmentSchema = z.preprocess((v) => {
+  if (typeof v !== "string") return v;
+  const names = v.match(/[A-Z][0-9']*/g);
+  return names && names.length === 2 ? names : v;
+}, z.tuple([z.string(), z.string()]));
+
 /** 도형 명세. AI가 SVG를 직접 그리지 않고 이 데이터를 주면 FigureRenderer가 그린다. */
 export const FigureSpecSchema = z.object({
   type: z.enum(["triangle", "polygon", "circle", "coordinate", "solid"]),
-  points: z.array(z.object({ label: z.string(), x: z.number(), y: z.number() })).optional(),
-  segments: z.array(z.tuple([z.string(), z.string()])).optional(),
+  points: z.array(z.object({ label: z.string(), x: z.coerce.number(), y: z.coerce.number() })).optional(),
+  segments: z.array(SegmentSchema).optional(),
+  /** 점선(입체도형의 보이지 않는 모서리 등) */
+  dashed: z.array(SegmentSchema).optional(),
   labels: z.array(z.object({ text: z.string(), at: z.string() })).optional(),
-  circle: z.object({ cx: z.number(), cy: z.number(), r: z.number() }).optional(),
+  circle: z.object({ cx: z.coerce.number(), cy: z.coerce.number(), r: z.coerce.number() }).optional(),
 });
+
+/**
+ * 도형은 있으면 좋은 정보일 뿐이므로, 형식이 조금 틀려도 문제 전체를 실패시키지 않고 도형만 버린다.
+ * (입체도형처럼 복잡한 그림에서 AI가 형식을 어기면 문제 인식 전체가 실패하던 문제)
+ */
+const OptionalFigure = FigureSpecSchema.optional().catch(undefined);
+
+/** "2", 2.0 처럼 와도 1~3 난이도로 받아 준다. */
+const Difficulty = z.preprocess(
+  (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(3, Math.max(1, Math.round(n))) : 2;
+  },
+  z.union([z.literal(1), z.literal(2), z.literal(3)]),
+);
 
 export const ProblemSchema = z.object({
   text: z.string().min(1),
   choices: z.array(z.string()).optional(),
   answer: z.string().min(1),
   solution: z.string().min(1),
-  difficulty: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-  figure: FigureSpecSchema.optional(),
+  difficulty: Difficulty,
+  figure: OptionalFigure,
   /** 정답 검증 결과. true면 "검토 필요" 배지를 표시한다. */
   needsReview: z.boolean().optional(),
   /** 정답 검증에서 고쳐졌거나 확인이 필요한 이유 */
@@ -37,7 +61,7 @@ export const AnalysisResultSchema = z.object({
     choices: z.array(z.string()).optional(),
     answer: z.string(),
     solution: z.string(),
-    figure: FigureSpecSchema.optional(),
+    figure: OptionalFigure,
     needsReview: z.boolean().optional(),
     verifyNote: z.string().optional(),
   }),
@@ -81,10 +105,10 @@ export const CurriculumSchema = z.object({
 
 /** 사진에서 읽어 낸 문제 한 개. 사용자가 확인·수정한 뒤 분석 단계로 넘긴다. */
 export const RecognizedProblemSchema = z.object({
-  number: z.string().optional(),
+  number: z.union([z.string(), z.number()]).transform(String).optional(),
   text: z.string().min(1),
   choices: z.array(z.string()).optional(),
-  figure: FigureSpecSchema.optional(),
+  figure: OptionalFigure,
   /** 학생이 쓴 풀이·답·채점 표시. 문제 본문과 분리한다. */
   studentWork: z.string().optional(),
 });

@@ -4,14 +4,32 @@ import { AiConfigError, AiOutputError } from "./errors";
 
 export const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 
-let client: Anthropic | null = null;
+let serverClient: Anthropic | null = null;
 
-function getClient(): Anthropic {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new AiConfigError("서버에 ANTHROPIC_API_KEY가 설정되지 않았습니다. .env.local을 확인하세요.");
+/** 브라우저에서 사용자가 입력한 키를 보낼 때 쓰는 요청 헤더 */
+export const USER_KEY_HEADER = "x-user-api-key";
+
+/** 요청에서 사용자 키를 꺼낸다(형식이 맞을 때만). */
+export function userKeyFrom(req: Request): string | undefined {
+  const key = req.headers.get(USER_KEY_HEADER)?.trim();
+  return key && /^sk-ant-[\w-]{20,}$/.test(key) ? key : undefined;
+}
+
+export function hasServerKey(): boolean {
+  return !!process.env.ANTHROPIC_API_KEY;
+}
+
+/**
+ * 서버 환경 변수 키가 있으면 그것을, 없으면 사용자가 화면에서 입력한 키를 쓴다.
+ * 사용자 키는 이 요청에만 쓰고 서버에 저장하지 않는다.
+ */
+function getClient(userKey?: string): Anthropic {
+  if (process.env.ANTHROPIC_API_KEY) {
+    serverClient ??= new Anthropic();
+    return serverClient;
   }
-  client ??= new Anthropic();
-  return client;
+  if (userKey) return new Anthropic({ apiKey: userKey });
+  throw new AiConfigError("API 키가 없습니다. 화면 위쪽 ⚙ 설정에서 Claude API 키를 입력해 주세요.");
 }
 
 export type UserContent = Anthropic.MessageParam["content"];
@@ -33,8 +51,10 @@ export async function callTool(opts: {
   content: UserContent;
   tool: Anthropic.Tool;
   maxTokens: number;
+  /** 사용자가 입력한 API 키 (서버 키가 없을 때만 쓰임) */
+  apiKey?: string;
 }): Promise<unknown> {
-  const res = await getClient().messages.create({
+  const res = await getClient(opts.apiKey).messages.create({
     model: MODEL,
     max_tokens: opts.maxTokens,
     system: opts.system,

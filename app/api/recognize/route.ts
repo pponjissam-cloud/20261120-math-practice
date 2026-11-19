@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { callTool, imageBlock } from "@/lib/ai/client";
+import { callTool, imageBlock, userKeyFrom } from "@/lib/ai/client";
 import { RECOGNIZE_SYSTEM } from "@/lib/ai/prompts";
 import { recognizeTool } from "@/lib/ai/tools";
 import { normalizeRecognition } from "@/lib/ai/analyze";
@@ -18,6 +18,7 @@ export async function POST(req: Request) {
   const body = BodySchema.safeParse(await req.json().catch(() => null));
   if (!body.success) return Response.json({ error: body.error.issues[0]?.message ?? "잘못된 요청입니다." }, { status: 400 });
 
+  const apiKey = userKeyFrom(req);
   try {
     const result = await withRetry(async () =>
       normalizeRecognition(
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
           system: RECOGNIZE_SYSTEM,
           tool: recognizeTool,
           maxTokens: 4000,
+          apiKey,
           content: [imageBlock(body.data.image), { type: "text", text: "이 사진의 수학 문제를 읽어 주세요." }],
         }),
       ),

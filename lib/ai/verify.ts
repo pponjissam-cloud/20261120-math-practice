@@ -13,21 +13,24 @@ const VerdictSchema = z.discriminatedUnion("verdict", [
   z.object({ verdict: z.literal("unsure"), note: z.string().optional() }).passthrough(),
 ]);
 
-async function solve(t: Omit<VerifyTarget, "answer" | "solution">): Promise<Solved> {
-  return withRetry(async () =>
-    SolvedSchema.parse(await callTool({ system: SOLVE_SYSTEM, tool: solveTool, maxTokens: 3000, content: solveUserText(t) })),
-  );
-}
-
-async function adjudicate(t: VerifyTarget, solved: Solved): Promise<Verdict> {
-  return withRetry(async () => {
-    const raw = VerdictSchema.parse(
-      await callTool({ system: ADJUDICATE_SYSTEM, tool: adjudicateTool, maxTokens: 4000, content: adjudicateUserText(t, solved) }),
+/** apiKey: 사용자가 화면에서 입력한 키(서버 키가 없을 때만 쓰임) */
+export function aiVerifyDeps(apiKey?: string): VerifyDeps {
+  async function solve(t: Omit<VerifyTarget, "answer" | "solution">): Promise<Solved> {
+    return withRetry(async () =>
+      SolvedSchema.parse(await callTool({ system: SOLVE_SYSTEM, tool: solveTool, maxTokens: 3000, content: solveUserText(t), apiKey })),
     );
-    if (raw.verdict === "key_wrong") return { verdict: "key_wrong", answer: raw.answer, solution: raw.solution, note: raw.note };
-    if (raw.verdict === "unsure") return { verdict: "unsure", note: raw.note };
-    return { verdict: "key_correct" };
-  });
-}
+  }
 
-export const aiVerifyDeps: VerifyDeps = { solve, adjudicate, concurrency: 4 };
+  async function adjudicate(t: VerifyTarget, solved: Solved): Promise<Verdict> {
+    return withRetry(async () => {
+      const raw = VerdictSchema.parse(
+        await callTool({ system: ADJUDICATE_SYSTEM, tool: adjudicateTool, maxTokens: 4000, content: adjudicateUserText(t, solved), apiKey }),
+      );
+      if (raw.verdict === "key_wrong") return { verdict: "key_wrong", answer: raw.answer, solution: raw.solution, note: raw.note };
+      if (raw.verdict === "unsure") return { verdict: "unsure", note: raw.note };
+      return { verdict: "key_correct" };
+    });
+  }
+
+  return { solve, adjudicate, concurrency: 4 };
+}

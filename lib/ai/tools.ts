@@ -5,7 +5,8 @@ import type { Curriculum } from "@/lib/schemas";
 
 const figure = {
   type: "object",
-  description: "도형이 있을 때만. 좌표는 수학 좌표계(y 위쪽), 대략적인 비율이면 충분.",
+  description:
+    "도형이 있을 때만. 좌표는 수학 좌표계(y 위쪽), 대략적인 비율이면 충분. 입체도형은 그림(겨냥도)에 보이는 2D 위치를 그대로 쓰고, 보이는 모서리는 segments, 점선 모서리는 dashed에 넣는다.",
   properties: {
     type: { type: "string", enum: ["triangle", "polygon", "circle", "coordinate", "solid"] },
     points: {
@@ -16,7 +17,8 @@ const figure = {
         required: ["label", "x", "y"],
       },
     },
-    segments: { type: "array", items: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 2 } },
+    segments: { type: "array", items: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 2 }, description: '예: [["A","B"],["B","C"]]' },
+    dashed: { type: "array", items: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 2 } },
     labels: {
       type: "array",
       items: { type: "object", properties: { text: { type: "string" }, at: { type: "string" } }, required: ["text", "at"] },
