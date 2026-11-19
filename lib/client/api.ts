@@ -28,6 +28,10 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   return json as T;
 }
 
+export function checkConnection(): Promise<{ model: string; ms: number; usingServerKey: boolean }> {
+  return postJson("/api/check", {});
+}
+
 export function recognize(image: string): Promise<RecognizeResult> {
   return postJson("/api/recognize", { image });
 }

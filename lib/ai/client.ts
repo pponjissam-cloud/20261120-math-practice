@@ -32,6 +32,17 @@ function getClient(userKey?: string): Anthropic {
   throw new AiConfigError("API 키가 없습니다. 화면 위쪽 ⚙ 설정에서 Claude API 키를 입력해 주세요.");
 }
 
+/** 키가 동작하는지 아주 짧은 요청으로 확인한다. */
+export async function pingClaude(apiKey?: string): Promise<{ model: string; ms: number; usingServerKey: boolean }> {
+  const started = Date.now();
+  await getClient(apiKey).messages.create({
+    model: MODEL,
+    max_tokens: 5,
+    messages: [{ role: "user", content: "OK라고만 답하세요." }],
+  });
+  return { model: MODEL, ms: Date.now() - started, usingServerKey: hasServerKey() };
+}
+
 export type UserContent = Anthropic.MessageParam["content"];
 export type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 

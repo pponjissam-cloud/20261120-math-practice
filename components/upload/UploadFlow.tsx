@@ -11,6 +11,7 @@ import { getUnit, semesterLabel } from "@/lib/curriculum";
 import { LOW_CONFIDENCE } from "@/lib/ai/analyze";
 import { MathText } from "@/components/math/MathText";
 import { ApiKeyPanel } from "@/components/settings/ApiKeyPanel";
+import { APP_VERSION } from "@/lib/version";
 
 type Step = "upload" | "recognizing" | "review" | "analyzing" | "verifying" | "pickUnit";
 
@@ -95,14 +96,14 @@ export function UploadFlow() {
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-10">
-      <h1 className="mb-2 text-2xl font-bold">오답 쌍둥이 문제 학습지</h1>
+      <h1 className="mb-2 text-2xl font-bold">오답 쌍둥이 문제 학습지 <span className="align-middle text-xs font-normal text-slate-400">v.{APP_VERSION}</span></h1>
       <p className="mb-8 text-slate-600">
         틀린 문제 사진을 올리면 교육과정 단원을 찾아 쌍둥이 문제 2개, 개념 설명, 개념 확인 문제, 교육과정 맵을 만들어 드립니다.
       </p>
 
       {step === "upload" && (
         <div className="mb-6">
-          <ApiKeyPanel compact onReady={setKeyReady} />
+          <ApiKeyPanel onReady={setKeyReady} />
         </div>
       )}
 
