@@ -25,7 +25,7 @@ export async function POST(req: Request) {
         await callTool({
           system: RECOGNIZE_SYSTEM,
           tool: recognizeTool,
-          maxTokens: 4000,
+          maxTokens: 8000,
           apiKey,
           content: [imageBlock(body.data.image), { type: "text", text: "이 사진의 수학 문제를 읽어 주세요." }],
         }),

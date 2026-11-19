@@ -1,6 +1,7 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { AiConfigError, AiOutputError } from "./errors";
+import { extractJson } from "./json";
 
 export const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 
@@ -57,7 +58,9 @@ export function imageBlock(dataUrl: string): Anthropic.ImageBlockParam {
 }
 
 /**
- * 지정한 tool 하나를 반드시 호출하게 해서 JSON 구조화 출력을 받는다.
+ * tool(JSON 스키마)을 주고 구조화된 답을 받는다.
+ * 최신 모델 중에는 도구 호출을 강제하는 옵션(tool_choice: tool/any)을 지원하지 않는 모델이 있어,
+ * 강제하지 않고(auto) 지시문으로 요청한 뒤, 도구 호출이 없으면 글 속 JSON을 읽는다.
  * 반환값은 검증 전 데이터이므로 호출 측에서 zod로 검증해야 한다.
  */
 export async function callTool(opts: {
@@ -68,16 +71,27 @@ export async function callTool(opts: {
   /** 사용자가 입력한 API 키 (서버 키가 없을 때만 쓰임) */
   apiKey?: string;
 }): Promise<unknown> {
+  const system = `${opts.system}
+
+## 응답 방법 (반드시 지킬 것)
+결과는 반드시 \`${opts.tool.name}\` 도구를 한 번 호출해서 보내세요. 도구 호출 앞뒤에 다른 설명을 쓰지 마세요.`;
+
   const res = await getClient(opts.apiKey).messages.create({
     model: MODEL,
     max_tokens: opts.maxTokens,
-    system: opts.system,
+    system,
     tools: [opts.tool],
-    tool_choice: { type: "tool", name: opts.tool.name },
+    tool_choice: { type: "auto" },
     messages: [{ role: "user", content: opts.content }],
   });
   if (res.stop_reason === "max_tokens") throw new AiOutputError("AI 응답이 너무 길어 잘렸습니다.");
-  const block = res.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
-  if (!block) throw new AiOutputError("AI가 구조화된 응답을 반환하지 않았습니다.");
-  return block.input;
+
+  const block = res.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === opts.tool.name);
+  if (block) return block.input;
+
+  // 도구 대신 글로 JSON을 보낸 경우
+  const text = res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
+  const parsed = extractJson(text);
+  if (parsed !== undefined) return parsed;
+  throw new AiOutputError("AI가 구조화된 응답을 반환하지 않았습니다.");
 }

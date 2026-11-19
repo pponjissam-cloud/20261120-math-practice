@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       { type: "text", text: gradeUserText(worksheet) },
     ];
     const result = await withRetry(async () =>
-      normalizeGrade(await callTool({ system: GRADE_SYSTEM, tool, maxTokens: 12000, content, apiKey }), worksheet),
+      normalizeGrade(await callTool({ system: GRADE_SYSTEM, tool, maxTokens: 16000, content, apiKey }), worksheet),
     );
     return Response.json({ result });
   } catch (err) {

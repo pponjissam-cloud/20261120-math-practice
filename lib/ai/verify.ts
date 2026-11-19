@@ -17,14 +17,14 @@ const VerdictSchema = z.discriminatedUnion("verdict", [
 export function aiVerifyDeps(apiKey?: string): VerifyDeps {
   async function solve(t: Omit<VerifyTarget, "answer" | "solution">): Promise<Solved> {
     return withRetry(async () =>
-      SolvedSchema.parse(await callTool({ system: SOLVE_SYSTEM, tool: solveTool, maxTokens: 3000, content: solveUserText(t), apiKey })),
+      SolvedSchema.parse(await callTool({ system: SOLVE_SYSTEM, tool: solveTool, maxTokens: 6000, content: solveUserText(t), apiKey })),
     );
   }
 
   async function adjudicate(t: VerifyTarget, solved: Solved): Promise<Verdict> {
     return withRetry(async () => {
       const raw = VerdictSchema.parse(
-        await callTool({ system: ADJUDICATE_SYSTEM, tool: adjudicateTool, maxTokens: 4000, content: adjudicateUserText(t, solved), apiKey }),
+        await callTool({ system: ADJUDICATE_SYSTEM, tool: adjudicateTool, maxTokens: 8000, content: adjudicateUserText(t, solved), apiKey }),
       );
       if (raw.verdict === "key_wrong") return { verdict: "key_wrong", answer: raw.answer, solution: raw.solution, note: raw.note };
       if (raw.verdict === "unsure") return { verdict: "unsure", note: raw.note };

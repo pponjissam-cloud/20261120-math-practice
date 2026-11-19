@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     content.push({ type: "text", text: analyzeUserText(problem, forcedUnitId) });
 
     const result = await withRetry(async () =>
-      normalizeAnalysis(await callTool({ system: SYSTEM, tool: TOOL, maxTokens: 12000, content, apiKey }), { forcedUnitId }),
+      normalizeAnalysis(await callTool({ system: SYSTEM, tool: TOOL, maxTokens: 16000, content, apiKey }), { forcedUnitId }),
     );
     return Response.json({ result });
   } catch (err) {
