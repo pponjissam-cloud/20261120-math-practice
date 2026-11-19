@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { clearUserKey, fetchServerHasKey, getUserKey, isValidKeyFormat, maskKey, setUserKey } from "@/lib/client/apiKey";
+import { KEY_PREFIX, clearUserKey, fetchServerHasKey, getUserKey, isValidKeyFormat, maskKey, setUserKey } from "@/lib/client/apiKey";
 import { checkConnection } from "@/lib/client/api";
 
 /**
@@ -29,7 +29,7 @@ export function ApiKeyPanel({ onReady }: { onReady?: (ready: boolean) => void })
 
   function save() {
     if (!isValidKeyFormat(input)) {
-      setError("키 형식이 맞지 않습니다. sk-ant- 로 시작하는 키 전체를 붙여 넣어 주세요.");
+      setError(`키 형식이 맞지 않습니다. ${KEY_PREFIX} 로 시작하는 키 전체를 붙여 넣어 주세요.`);
       return;
     }
     setUserKey(input);
@@ -91,7 +91,7 @@ export function ApiKeyPanel({ onReady }: { onReady?: (ready: boolean) => void })
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") save(); }}
-              placeholder="sk-ant-api03-… 키를 여기에 붙여 넣기"
+              placeholder="Claude API 키를 여기에 붙여 넣기"
               autoComplete="off"
               spellCheck={false}
               className="min-w-0 flex-1 rounded border border-slate-300 p-2 font-mono text-sm"

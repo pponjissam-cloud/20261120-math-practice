@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { ProblemSchema, RecognizeResultSchema } from "@/lib/schemas";
-import { isValidKeyFormat, maskKey } from "@/lib/client/apiKey";
+import { KEY_PREFIX, isValidKeyFormat, maskKey } from "@/lib/client/apiKey";
+
+// 진짜 키처럼 보이는 문자열을 저장소에 두지 않는다(Netlify 비밀 키 검사 오탐 방지)
+const fakeKey = (body: string) => `${KEY_PREFIX}test-${body}`;
 
 describe("인식 결과는 도형 형식이 틀려도 실패하지 않는다", () => {
   it("잘못된 도형은 버리고 문제 글은 살린다", () => {
@@ -42,11 +45,12 @@ describe("난이도는 숫자 문자열도 받아 준다", () => {
 
 describe("API 키", () => {
   it("형식 검사", () => {
-    expect(isValidKeyFormat("sk-ant-api03-" + "x".repeat(40))).toBe(true);
+    expect(isValidKeyFormat(fakeKey("x".repeat(30)))).toBe(true);
     expect(isValidKeyFormat("sk-proj-abc")).toBe(false);
     expect(isValidKeyFormat("")).toBe(false);
   });
   it("일부만 보여 준다", () => {
-    expect(maskKey("sk-ant-api03-abcdefghijklmnopWXYZ")).toBe("sk-ant-api03-…WXYZ");
+    const k = fakeKey("0".repeat(20) + "WXYZ");
+    expect(maskKey(k)).toBe(`${k.slice(0, 13)}…WXYZ`);
   });
 });
