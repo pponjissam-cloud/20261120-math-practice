@@ -46,7 +46,7 @@ API 키가 없으면 사진 읽기·학습지 만들기·채점이 **하나도 �
 | 기능 | 필요한 것 | 없으면 |
 |---|---|---|
 | Word 다운로드 (Word에서 고칠 수 있는 수식) | [pandoc](https://pandoc.org/installing.html) 3.x — `brew install pandoc` / `winget install JohnMacFarlane.Pandoc` / `apt install pandoc` | 수식을 일반 글자(×, ², √)로 넣은 Word 파일 |
-| PDF 다운로드 (화면과 똑같은 PDF) | `npx playwright install chromium` (서버에 한글 글꼴 필요: Noto Sans KR 등) | 브라우저 인쇄 창이 열림 → "PDF로 저장" |
+| PDF 다운로드 (화면과 똑같은 PDF) | `npm i playwright && npx playwright install chromium` (서버에 한글 글꼴 필요: Noto Sans KR 등) | 브라우저 인쇄 창이 열림 → "PDF로 저장" |
 
 pandoc 위치를 지정하려면 `PANDOC_PATH`, PDF 생성 시 앱 주소가 다르면 `APP_BASE_URL`을 설정합니다.
 Word 서식(글꼴 맑은 고딕, A4, 여백)은 `templates/reference.docx`에서 바꿀 수 있습니다.
@@ -144,7 +144,7 @@ Claude 호출 수: 학습지 만들기 = 인식 1 + 분석 1 + 검증 8~9(답이
 - 도형은 점·선분·원만 그립니다.
 - 손글씨가 흐리면 채점이 틀릴 수 있습니다. "내 풀이(사진에서 읽은 내용)"를 펼쳐 제대로 읽었는지 확인해 주세요.
 - 학습지는 기기 간에 공유되지 않습니다(Phase 4).
-- 서버 PDF는 Vercel 같은 서버리스 환경에서는 Chromium 실행이 어려울 수 있습니다. 그때는 자동으로 브라우저 인쇄로 대신합니다.
+- 서버 PDF는 Netlify·Vercel 같은 서버리스 환경에서는 Chromium 실행이 어려울 수 있습니다. 그때는 자동으로 브라우저 인쇄로 대신합니다.
 - **Netlify**: 서버 함수 실행 시간이 기본 10초(요청 시 최대 26초)라서 학습지 만들기·정답 검증·채점이 시간 초과(504)로 끊길 수 있습니다.
   화면에 "서버 응답 시간이 초과되었습니다 (504)"가 나오면 이 때문입니다.
 - 사진 인식이 실패하면 "문제를 직접 입력하기"로 글만 입력하고 사진은 그림 참고용으로 넘길 수 있습니다.

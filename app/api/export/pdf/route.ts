@@ -4,6 +4,18 @@ import { exportFileName } from "@/lib/export/context";
 import { storageSnapshot } from "@/lib/client/storage";
 
 export const runtime = "nodejs";
+
+// playwright 타입에 의존하지 않도록 쓰는 부분만 정의한다(선택 설치 패키지라 없어도 빌드되게)
+type Page = {
+  goto(url: string, opts?: { waitUntil?: "networkidle"; timeout?: number }): Promise<unknown>;
+  waitForSelector(sel: string, opts?: { timeout?: number }): Promise<unknown>;
+  evaluate<T>(fn: () => T | Promise<T>): Promise<T>;
+  emulateMedia(opts: { media: "print" }): Promise<void>;
+  pdf(opts: { format: "A4"; printBackground: boolean; preferCSSPageSize: boolean }): Promise<Uint8Array>;
+};
+type Context = { addInitScript<A>(fn: (arg: A) => void, arg: A): Promise<void>; newPage(): Promise<Page> };
+type Browser = { newContext(): Promise<Context>; close(): Promise<void> };
+type Chromium = { launch(): Promise<Browser> };
 export const maxDuration = 60;
 
 const BodySchema = z.object({
@@ -23,9 +35,11 @@ export async function POST(req: Request) {
   const { worksheet, includeAnswers } = body.data;
   const code = body.data.code ?? "PRINT";
 
-  let chromium: typeof import("playwright").chromium;
+  let chromium: Chromium;
   try {
-    ({ chromium } = await import("playwright"));
+    // 번들러가 playwright를 묶지 않도록 실행 시점에만 불러온다(설치돼 있지 않으면 인쇄 창으로 대체)
+    const name = "playwright";
+    ({ chromium } = (await import(/* webpackIgnore: true */ name)) as { chromium: Chromium });
   } catch {
     return Response.json({ error: "서버 PDF 생성을 쓸 수 없습니다.", fallback: "print" }, { status: 501 });
   }
@@ -35,7 +49,7 @@ export async function POST(req: Request) {
   const target = `${base}/worksheet?id=${code}${includeAnswers ? "&answers=1" : ""}`;
   const snapshot = storageSnapshot({ id: code, createdAt: new Date().toISOString(), data: worksheet });
 
-  let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
+  let browser: Browser | null = null;
   try {
     browser = await chromium.launch();
     const context = await browser.newContext();
