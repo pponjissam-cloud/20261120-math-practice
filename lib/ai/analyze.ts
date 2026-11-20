@@ -48,6 +48,26 @@ export function normalizeMap(raw: unknown, opts: { forcedUnitId?: string } = {},
   };
 }
 
+/**
+ * AI가 {problem: {...}} 대신 문제 내용을 바로 보내거나, problem을 JSON 글로 보내는 경우도 받아 준다.
+ */
+export function unwrapPart(part: string, raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const o = raw as Record<string, unknown>;
+  const key = part === "concept" ? "concept" : "problem";
+  let inner = o[key];
+  if (typeof inner === "string") {
+    try {
+      inner = JSON.parse(inner);
+    } catch {
+      // 그대로 둔다
+    }
+  }
+  if (inner && typeof inner === "object") return { [key]: inner };
+  const looksLikeIt = part === "concept" ? "title" in o || "summary" in o : "text" in o || "answer" in o;
+  return looksLikeIt ? { [key]: o } : raw;
+}
+
 /** 나눠 만든 부분을 하나의 학습지로 합친다. (쌍둥이 2개, 확인 문제 3~5개 필요) */
 export function assembleWorksheet(map: MapPart, twins: Problem[], concept: ConceptPart, checks: Problem[]): AnalysisResult {
   return AnalysisResultSchema.parse({ ...map, twins, ...concept, checkProblems: checks.slice(0, 5) });

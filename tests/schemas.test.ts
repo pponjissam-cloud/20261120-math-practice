@@ -54,3 +54,15 @@ describe("API 키", () => {
     expect(maskKey(k)).toBe(`${k.slice(0, 13)}…WXYZ`);
   });
 });
+
+describe("AI가 형식을 조금 다르게 보내도 받아 준다", () => {
+  it("답이 숫자, 풀이가 줄 목록, problem 없이 바로 온 경우", async () => {
+    const { ProblemPartSchema, unwrapPart } = await import("@/lib/ai/analyze");
+    const r = ProblemPartSchema.parse(
+      unwrapPart("twin1", { text: "모서리는 몇 개?", choices: [1, 2, 3], answer: 3, solution: ["1단계", "2단계"], difficulty: "2" }),
+    );
+    expect(r.problem.answer).toBe("3");
+    expect(r.problem.solution).toBe("1단계\n2단계");
+    expect(r.problem.choices).toEqual(["1", "2", "3"]);
+  });
+});

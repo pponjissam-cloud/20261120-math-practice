@@ -2,7 +2,7 @@ import { z } from "zod";
 import { callTool, userKeyFrom } from "@/lib/ai/client";
 import { ANALYZE_PARTS, partSystem, partUserText } from "@/lib/ai/prompts";
 import { conceptTool, problemTool } from "@/lib/ai/tools";
-import { ConceptPartSchema, MapPartSchema, ProblemPartSchema } from "@/lib/ai/analyze";
+import { ConceptPartSchema, MapPartSchema, ProblemPartSchema, unwrapPart } from "@/lib/ai/analyze";
 import { toErrorResponse } from "@/lib/ai/http";
 import { getUnit, semesterLabel } from "@/lib/curriculum";
 import { RecognizedProblemSchema } from "@/lib/schemas";
@@ -32,11 +32,11 @@ export async function POST(req: Request) {
     const raw = await callTool({
       system: partSystem(part),
       tool,
-      maxTokens: 4000,
+      maxTokens: 8000,
       content: partUserText(problem, map, unitLabel),
       apiKey: userKeyFrom(req),
     });
-    return Response.json({ result: schema.parse(raw) });
+    return Response.json({ result: schema.parse(unwrapPart(part, raw)) });
   } catch (err) {
     return toErrorResponse(err);
   }

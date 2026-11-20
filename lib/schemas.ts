@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+/**
+ * AI가 글 대신 숫자(예: 답 3)나 줄 목록(풀이 단계 배열)으로 보내도 글로 받아 준다.
+ * (예: "몇 개인가?" 문제의 answer를 3 으로 보내면 문제 전체가 형식 오류가 되던 문제)
+ */
+const Text = z.preprocess(
+  (v) => (typeof v === "number" ? String(v) : Array.isArray(v) && v.every((x) => typeof x === "string") ? v.join("\n") : v),
+  z.string(),
+);
+
 /** "AB" 처럼 문자열로 온 선분도 ["A","B"]로 받아 준다. */
 const SegmentSchema = z.preprocess((v) => {
   if (typeof v !== "string") return v;
@@ -34,10 +43,10 @@ const Difficulty = z.preprocess(
 );
 
 export const ProblemSchema = z.object({
-  text: z.string().min(1),
-  choices: z.array(z.string()).optional(),
-  answer: z.string().min(1),
-  solution: z.string().min(1),
+  text: Text.pipe(z.string().min(1)),
+  choices: z.array(Text).optional(),
+  answer: Text.pipe(z.string().min(1)),
+  solution: Text.pipe(z.string().min(1)),
   difficulty: Difficulty,
   figure: OptionalFigure,
   /** 정답 검증 결과. true면 "검토 필요" 배지를 표시한다. */
@@ -57,10 +66,10 @@ export const VerificationSchema = z.object({
 
 export const AnalysisResultSchema = z.object({
   original: z.object({
-    text: z.string(),
-    choices: z.array(z.string()).optional(),
-    answer: z.string(),
-    solution: z.string(),
+    text: Text,
+    choices: z.array(Text).optional(),
+    answer: Text,
+    solution: Text,
     figure: OptionalFigure,
     needsReview: z.boolean().optional(),
     verifyNote: z.string().optional(),
@@ -107,7 +116,7 @@ export const CurriculumSchema = z.object({
 export const RecognizedProblemSchema = z.object({
   number: z.union([z.string(), z.number()]).transform(String).optional(),
   text: z.string().min(1),
-  choices: z.array(z.string()).optional(),
+  choices: z.array(Text).optional(),
   figure: OptionalFigure,
   /** 학생이 쓴 풀이·답·채점 표시. 문제 본문과 분리한다. */
   studentWork: z.string().optional(),

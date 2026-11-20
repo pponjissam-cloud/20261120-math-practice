@@ -5,10 +5,12 @@ import { ADJUDICATE_SYSTEM, SOLVE_SYSTEM, adjudicateUserText, solveUserText } fr
 import { adjudicateTool, solveTool } from "./tools";
 import type { Solved, Verdict, VerifyTarget } from "@/lib/verify/run";
 
-const SolvedSchema = z.object({ answer: z.string().min(1), solution: z.string() });
+// 답이 숫자(3)나 줄 목록으로 와도 글로 받아 준다
+const Text = z.preprocess((v) => (typeof v === "number" ? String(v) : Array.isArray(v) ? v.join("\n") : v), z.string());
+const SolvedSchema = z.object({ answer: Text.pipe(z.string().min(1)), solution: Text });
 const VerdictSchema = z.discriminatedUnion("verdict", [
   z.object({ verdict: z.literal("key_correct") }).passthrough(),
-  z.object({ verdict: z.literal("key_wrong"), answer: z.string().min(1), solution: z.string().min(1), note: z.string().optional() }).passthrough(),
+  z.object({ verdict: z.literal("key_wrong"), answer: Text.pipe(z.string().min(1)), solution: Text.pipe(z.string().min(1)), note: z.string().optional() }).passthrough(),
   z.object({ verdict: z.literal("unsure"), note: z.string().optional() }).passthrough(),
 ]);
 

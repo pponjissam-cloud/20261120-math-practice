@@ -8,8 +8,13 @@ export function toErrorResponse(err: unknown): Response {
 
   if (err instanceof AiConfigError) return json(401, err.message);
   if (err instanceof AiOutputError || err instanceof ZodError) {
-    if (err instanceof ZodError) console.error("AI 응답 형식 오류", err.issues.slice(0, 5));
-    return json(502, "AI 응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    // 무엇이 틀렸는지 함께 보여 줘 원인을 알 수 있게 한다
+    const detail =
+      err instanceof ZodError
+        ? err.issues.slice(0, 3).map((i) => `${i.path.join(".") || "(전체)"}: ${i.message}`).join(" / ")
+        : err.message;
+    console.error("AI 응답 형식 오류", detail);
+    return json(502, `AI 응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.\n(상세: ${detail.slice(0, 300)})`);
   }
   if (err instanceof Anthropic.APIError) {
     const msg = String(err.message ?? "");
