@@ -1,6 +1,6 @@
 import "server-only";
 import {
-  AlignmentType, BorderStyle, Document, HeadingLevel, Packer, PageBreak, Paragraph, Table, TableCell, TableRow, TextRun, WidthType,
+  AlignmentType, BorderStyle, Document, HeadingLevel, Packer, PageBreak, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType,
 } from "docx";
 import type { Block } from "./blocks";
 import { latexTextToPlain } from "./latex-plain";
@@ -25,8 +25,15 @@ export async function blocksToBasicDocx(blocks: Block[]): Promise<Buffer> {
     } else if (b.type === "pagebreak") {
       children.push(new Paragraph({ children: [new PageBreak()] }));
     } else if (b.type === "table") {
-      const cell = (t: string, bold = false) =>
-        new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: lines(t, { bold, size: 18 }) })] });
+      // 교육과정 맵 색: ★ 이번 단원(파랑) ◆ 먼저 알아야 할 단원(주황) ▷ 이어서 배울 단원(초록)
+      const fillOf = (t: string) => (t.startsWith("★") ? "BFDBFE" : t.startsWith("◆") ? "FFEDD5" : t.startsWith("▷") ? "D1FAE5" : undefined);
+      const cell = (t: string, bold = false) => {
+        const fill = fillOf(t);
+        return new TableCell({
+          shading: fill ? { fill, type: ShadingType.CLEAR, color: "auto" } : undefined,
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: lines(t, { bold, size: 18 }) })],
+        });
+      };
       const border = { style: BorderStyle.SINGLE, size: 4, color: "999999" };
       children.push(
         new Table({
@@ -34,7 +41,7 @@ export async function blocksToBasicDocx(blocks: Block[]): Promise<Buffer> {
           borders: { top: border, bottom: border, left: border, right: border, insideHorizontal: border, insideVertical: border },
           rows: [
             new TableRow({ tableHeader: true, children: b.header.map((h) => cell(h, true)) }),
-            ...b.rows.map((r) => new TableRow({ children: r.map((c) => cell(c, c.startsWith("★"))) })),
+            ...b.rows.map((r) => new TableRow({ children: r.map((c) => cell(c, !!fillOf(c))) })),
           ],
         }),
       );
