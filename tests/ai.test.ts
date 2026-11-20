@@ -95,13 +95,8 @@ describe("tool & prompt", () => {
 describe("학습지 나눠 만들기", () => {
   const map = normalizeMap({ original: sample.original, mapping: sample.mapping, errorPoint: sample.errorPoint });
 
-  it("부분들을 하나의 학습지로 합친다(확인 문제 2+2)", () => {
-    const ws = assembleWorksheet(
-      map,
-      { twins: sample.twins as never },
-      { concept: sample.concept as never },
-      [{ checkProblems: sample.checkProblems.slice(0, 2) as never }, { checkProblems: sample.checkProblems.slice(2, 4) as never }],
-    );
+  it("부분들을 하나의 학습지로 합친다(쌍둥이 2, 확인 문제 4)", () => {
+    const ws = assembleWorksheet(map, sample.twins as never, { concept: sample.concept as never }, sample.checkProblems as never);
     expect(ws.twins).toHaveLength(2);
     expect(ws.checkProblems).toHaveLength(4);
     expect(ws.mapping.unitId).toBe("M1-1-04");
@@ -115,7 +110,8 @@ describe("학습지 나눠 만들기", () => {
   });
 
   it("부분마다 할 일이 다르다", () => {
-    expect(partSystem("twins")).toContain("쌍둥이 문제를 정확히 2개");
-    expect(partSystem("check2")).toContain("틀린 지점을 직접 겨냥");
+    expect(partSystem("twin1")).toContain("수치·문자");
+    expect(partSystem("twin2")).toContain("함정을 더 분명하게");
+    expect(partSystem("check3")).toContain("틀린 지점을 직접 겨냥");
   });
 });

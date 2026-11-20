@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   AnalysisResultSchema, ProblemSchema, RecognizeResultSchema,
-  type AnalysisResult, type Curriculum, type RecognizeResult,
+  type AnalysisResult, type Curriculum, type Problem, type RecognizeResult,
 } from "@/lib/schemas";
 import { curriculum, getUnit } from "@/lib/curriculum";
 import { AiOutputError } from "./errors";
@@ -15,14 +15,12 @@ export function normalizeRecognition(raw: unknown): RecognizeResult {
 // ── 학습지는 여러 부분으로 나눠 만든다 ──
 
 export const MapPartSchema = AnalysisResultSchema.pick({ original: true, mapping: true, errorPoint: true });
-export const TwinsPartSchema = z.object({ twins: z.array(ProblemSchema).length(2) });
+export const ProblemPartSchema = z.object({ problem: ProblemSchema });
 export const ConceptPartSchema = AnalysisResultSchema.pick({ concept: true });
-export const CheckPartSchema = z.object({ checkProblems: z.array(ProblemSchema).min(2).max(3) });
 
 export type MapPart = z.infer<typeof MapPartSchema>;
-export type TwinsPart = z.infer<typeof TwinsPartSchema>;
+export type ProblemPart = z.infer<typeof ProblemPartSchema>;
 export type ConceptPart = z.infer<typeof ConceptPartSchema>;
-export type CheckPart = z.infer<typeof CheckPartSchema>;
 
 /**
  * 단원 분석 결과를 검증하고 정리한다.
@@ -50,14 +48,9 @@ export function normalizeMap(raw: unknown, opts: { forcedUnitId?: string } = {},
   };
 }
 
-/** 나눠 만든 부분을 하나의 학습지로 합친다. */
-export function assembleWorksheet(map: MapPart, twins: TwinsPart, concept: ConceptPart, checks: CheckPart[]): AnalysisResult {
-  return AnalysisResultSchema.parse({
-    ...map,
-    ...twins,
-    ...concept,
-    checkProblems: checks.flatMap((c) => c.checkProblems).slice(0, 5),
-  });
+/** 나눠 만든 부분을 하나의 학습지로 합친다. (쌍둥이 2개, 확인 문제 3~5개 필요) */
+export function assembleWorksheet(map: MapPart, twins: Problem[], concept: ConceptPart, checks: Problem[]): AnalysisResult {
+  return AnalysisResultSchema.parse({ ...map, twins, ...concept, checkProblems: checks.slice(0, 5) });
 }
 
 /** 한 번에 받은 전체 분석 결과 검증(테스트·이전 데이터용) */

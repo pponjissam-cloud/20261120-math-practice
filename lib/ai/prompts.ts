@@ -31,7 +31,9 @@ const COMMON_RULES = `## 공통 규칙
 - 모든 문제는 직접 풀어 보고 answer가 맞는지 확인한 뒤 쓴다. (만든 뒤 별도 검산을 거친다)
 - 객관식 문제의 answer는 보기 번호 기호로 시작한다(예: ③ $x=2$).
 - 해당 학년까지 배운 개념만 쓴다. 고등학교 개념·용어 금지.
-- 모든 글은 한국어로, 간결하게 쓴다.
+- 모든 글은 한국어로 쓴다.
+- 짧고 빠르게: solution은 핵심 단계만 5줄 이내, 군더더기 설명 금지.
+- figure는 그림이 없으면 풀 수 없는 문제일 때만 넣고, 점·선분만 간단히 적는다.
 
 ${LATEX_RULES}`;
 
@@ -51,25 +53,28 @@ ${curriculumListText(data)}
 ${COMMON_RULES}`;
 }
 
-export type AnalyzePart = "twins" | "concept" | "check1" | "check2";
+/** 학습지 2단계는 문제 1개(또는 개념 설명 1개)당 요청 1개로 나눠 만든다(실행 시간 제한 대비). */
+export const ANALYZE_PARTS = ["twin1", "twin2", "concept", "check1", "check2", "check3", "check4"] as const;
+export type AnalyzePart = (typeof ANALYZE_PARTS)[number];
+
+const TWIN_RULES = `쌍둥이 문제의 조건
+- 유지: 핵심 개념, 풀이 단계 수, 문제 유형(객관식이면 객관식, 보기 수도 같게), 난이도, 원래 문제의 함정 포인트
+- 금지: 원래 문제와 같은 정답, 중학생 수준에서 지저분한 답(복잡한 분수·소수)`;
 
 const PART_TASK: Record<AnalyzePart, string> = {
-  twins: `쌍둥이 문제를 정확히 2개 만든다.
-- 유지: 핵심 개념, 풀이 단계 수, 문제 유형(객관식이면 객관식, 보기 수도 같게), 난이도, 원래 문제의 함정 포인트
-- 변경: 수치, 문자, 실생활 맥락 (그림이 필요한 문제면 꼭짓점 이름·모양을 바꾸고 figure로 그림을 준다)
-- 금지: 원래 문제와 같은 정답, 중학생 수준에서 지저분한 답(복잡한 분수·소수)
-- 두 번째 쌍둥이는 틀린 지점의 함정을 조금 더 분명하게 드러내도록 만든다.`,
+  twin1: `쌍둥이 문제 1개를 만든다(problem). 원래 문제와 상황은 같게 두고 수치·문자(꼭짓점 이름 등)만 바꾼다.
+${TWIN_RULES}`,
+  twin2: `쌍둥이 문제 1개를 만든다(problem). 원래 문제와 상황이나 모양을 조금 바꾸고, 틀린 지점의 함정을 더 분명하게 드러낸다.
+${TWIN_RULES}`,
   concept: `관련 개념 설명(concept)을 만든다.
 - title: 개념 이름, summary: 중학생 눈높이로 3~5문장
 - keyFormulas: 꼭 기억할 공식·규칙 2~4개
 - commonMistakes: 이 유형에서 자주 하는 실수 2~4개 (틀린 예 → 바른 예)
 - example: 쉬운 예제 1개(풀이·답 포함)`,
-  check1: `개념 확인 문제를 정확히 2개 만든다. 이 2개는 쉬운 단계다.
-- 1번: 핵심 개념·용어 자체를 확인하는 아주 쉬운 문제 (difficulty 1)
-- 2번: 개념을 한 번 적용하는 쉬운 문제 (difficulty 1)`,
-  check2: `개념 확인 문제를 정확히 2개 만든다. 이 2개는 적용 단계다.
-- 1번: 틀린 지점을 직접 겨냥하는 문제 (difficulty 2)
-- 2번: 원래 문제와 비슷한 수준의 문제, 단 쌍둥이 문제와는 다른 상황 (difficulty 2~3)`,
+  check1: `개념 확인 문제 1개를 만든다(problem). 핵심 개념·용어 자체를 확인하는 아주 쉬운 문제 (difficulty 1).`,
+  check2: `개념 확인 문제 1개를 만든다(problem). 개념을 한 번 적용하는 쉬운 문제 (difficulty 1).`,
+  check3: `개념 확인 문제 1개를 만든다(problem). 틀린 지점을 직접 겨냥하는 문제 (difficulty 2).`,
+  check4: `개념 확인 문제 1개를 만든다(problem). 원래 문제와 비슷한 수준이지만 쌍둥이 문제와는 다른 상황 (difficulty 2~3).`,
 };
 
 /** 2단계: 단원 분석 결과를 바탕으로 학습지 한 부분을 만든다 */

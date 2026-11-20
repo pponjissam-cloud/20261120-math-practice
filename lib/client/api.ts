@@ -1,5 +1,5 @@
-import type { AnalysisResult, GradeItem, GradeResult, RecognizedProblem, RecognizeResult } from "@/lib/schemas";
-import { assembleWorksheet, type CheckPart, type ConceptPart, type MapPart, type TwinsPart } from "@/lib/ai/analyze";
+import type { AnalysisResult, GradeItem, GradeResult, Problem, RecognizedProblem, RecognizeResult } from "@/lib/schemas";
+import { assembleWorksheet, type ConceptPart, type MapPart, type ProblemPart } from "@/lib/ai/analyze";
 import { normalizeGrade, type GradeItemsPart } from "@/lib/ai/grade";
 import { gradableProblems } from "@/lib/grade";
 import { verifyWorksheet, type Solved, type Verdict, type VerifyTarget } from "@/lib/verify/run";
@@ -76,25 +76,51 @@ export function analyzeMap(problem: RecognizedProblem, image?: string, forcedUni
   return postResult("/api/analyze", { problem, image, forcedUnitId });
 }
 
-/** 2단계: 쌍둥이·개념·확인 문제를 동시에 따로 만들어 합친다. */
-export async function buildWorksheet(problem: RecognizedProblem, map: MapPart, onProgress?: Progress): Promise<AnalysisResult> {
-  const total = 4;
-  let done = 0;
-  const tick = <T,>(label: string) => (v: T) => {
-    onProgress?.(++done, total, label);
-    return v;
-  };
-  const part = <T,>(name: string, label: string) =>
-    postResult<T>("/api/analyze/part", { part: name, problem, map }).then(tick<T>(label));
+const PART_LABEL: Record<string, string> = {
+  twin1: "쌍둥이 문제 1", twin2: "쌍둥이 문제 2", concept: "개념 설명",
+  check1: "확인 문제 1", check2: "확인 문제 2", check3: "확인 문제 3", check4: "확인 문제 4",
+};
 
+/**
+ * 2단계: 쌍둥이 2개·개념 설명·확인 문제 4개를 각각 따로(동시에) 만들어 합친다.
+ * 요청 하나가 문제 1개만 만들어 실행 시간 제한에 걸리지 않게 한다.
+ * 확인 문제는 하나가 실패해도 3개 이상이면 학습지를 완성한다.
+ */
+export async function buildWorksheet(problem: RecognizedProblem, map: MapPart, onProgress?: Progress): Promise<AnalysisResult> {
+  const parts = ["twin1", "twin2", "concept", "check1", "check2", "check3", "check4"] as const;
+  const total = parts.length;
+  let done = 0;
   onProgress?.(0, total, "학습지 만드는 중");
-  const [twins, concept, check1, check2] = await Promise.all([
-    part<TwinsPart>("twins", "쌍둥이 문제"),
-    part<ConceptPart>("concept", "개념 설명"),
-    part<CheckPart>("check1", "확인 문제(기초)"),
-    part<CheckPart>("check2", "확인 문제(적용)"),
+
+  const request = <T,>(part: string) =>
+    postResult<T>("/api/analyze/part", { part, problem, map })
+      .then((v) => {
+        onProgress?.(++done, total, PART_LABEL[part]);
+        return v;
+      })
+      .catch((e: unknown) => {
+        throw new Error(`${PART_LABEL[part]} 만들기 실패: ${e instanceof Error ? e.message : String(e)}`);
+      });
+
+  const [twin1, twin2, concept, ...checks] = await Promise.allSettled([
+    request<ProblemPart>("twin1"),
+    request<ProblemPart>("twin2"),
+    request<ConceptPart>("concept"),
+    ...["check1", "check2", "check3", "check4"].map((p) => request<ProblemPart>(p)),
   ]);
-  return assembleWorksheet(map, twins, concept, [check1, check2]);
+
+  const must = <T,>(r: PromiseSettledResult<T>): T => {
+    if (r.status === "rejected") throw r.reason;
+    return r.value;
+  };
+  const twins: Problem[] = [must(twin1 as PromiseSettledResult<ProblemPart>).problem, must(twin2 as PromiseSettledResult<ProblemPart>).problem];
+  const conceptPart = must(concept as PromiseSettledResult<ConceptPart>);
+  const okChecks = checks.flatMap((r) => (r.status === "fulfilled" ? [(r.value as ProblemPart).problem] : []));
+  if (okChecks.length < 3) {
+    const firstError = checks.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+    throw firstError?.reason ?? new Error("확인 문제를 충분히 만들지 못했습니다.");
+  }
+  return assembleWorksheet(map, twins, conceptPart, okChecks);
 }
 
 /** 단원 확인 없이 한 번에(채점 화면의 '새 쌍둥이 학습지 만들기'용) */

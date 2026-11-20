@@ -200,13 +200,13 @@ export function buildMapTool(data: Curriculum): Anthropic.Tool {
   };
 }
 
-export const twinsTool: Anthropic.Tool = {
-  name: "report_twins",
-  description: "쌍둥이 문제 2개를 보고한다.",
+export const problemTool: Anthropic.Tool = {
+  name: "report_problem",
+  description: "만든 문제 1개를 보고한다.",
   input_schema: {
     type: "object",
-    properties: { twins: { type: "array", items: problem, minItems: 2, maxItems: 2 } },
-    required: ["twins"],
+    properties: { problem },
+    required: ["problem"],
   },
 };
 
@@ -229,15 +229,5 @@ export const conceptTool: Anthropic.Tool = {
       },
     },
     required: ["concept"],
-  },
-};
-
-export const checkTool: Anthropic.Tool = {
-  name: "report_check_problems",
-  description: "개념 확인 문제 2개를 보고한다.",
-  input_schema: {
-    type: "object",
-    properties: { checkProblems: { type: "array", items: problem, minItems: 2, maxItems: 2 } },
-    required: ["checkProblems"],
   },
 };
