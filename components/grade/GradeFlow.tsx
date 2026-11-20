@@ -32,6 +32,7 @@ export function GradeFlow() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GradeResult | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [gradeProgress, setGradeProgress] = useState<{ done: number; total: number } | null>(null);
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("id");
@@ -62,7 +63,8 @@ export function GradeFlow() {
     try {
       const room = MAX_PHOTOS - photos.length;
       if (files.length > room) setError(`사진은 ${MAX_PHOTOS}장까지 올릴 수 있어 앞의 ${room}장만 추가했습니다.`);
-      const resized = await Promise.all(Array.from(files).slice(0, room).map((f) => resizeImage(f)));
+      // 여러 장을 한 번에 보내므로 조금 더 작게 줄인다(요청 크기 제한 대비)
+      const resized = await Promise.all(Array.from(files).slice(0, room).map((f) => resizeImage(f, 1600, 0.85)));
       setPhotos((prev) => [...prev, ...resized]);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -75,8 +77,9 @@ export function GradeFlow() {
     if (!current || photos.length === 0) return;
     setError(null);
     setBusy("grading");
+    setGradeProgress(null);
     try {
-      const r = await grade(current.data, photos);
+      const r = await grade(current.data, photos, (done, total) => setGradeProgress({ done, total }));
       saveGrade(current.id, r);
       setResult(r);
       setList(listWorksheets());
@@ -162,7 +165,9 @@ export function GradeFlow() {
 
           <button type="button" onClick={runGrade} disabled={photos.length === 0 || busy !== null}
             className="w-full rounded bg-blue-600 py-2.5 font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
-            {busy === "grading" ? "채점하고 풀이를 설명하는 중… (1분 정도 걸려요)" : result ? "다시 채점하기" : "채점하기"}
+            {busy === "grading"
+              ? `채점하고 풀이를 설명하는 중…${gradeProgress ? ` (${gradeProgress.done}/${gradeProgress.total})` : ""}`
+              : result ? "다시 채점하기" : "채점하기"}
           </button>
         </section>
       )}

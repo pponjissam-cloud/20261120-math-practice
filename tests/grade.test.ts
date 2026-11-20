@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ZodError } from "zod";
-import { normalizeGrade } from "@/lib/ai/grade";
-import { buildGradeTool } from "@/lib/ai/tools";
+import { normalizeGrade, normalizeGradeItems } from "@/lib/ai/grade";
+import { gradeGroups } from "@/lib/client/api";
+import { buildGradeItemsTool } from "@/lib/ai/tools";
 import { GRADE_SYSTEM, gradeUserText } from "@/lib/ai/prompts";
 import { gradableProblems, scoreOf } from "@/lib/grade";
 import { getCurrentWorksheet, getWorksheet, listWorksheets, saveGrade, saveWorksheet } from "@/lib/client/storage";
@@ -46,7 +47,7 @@ describe("scoreOf", () => {
 
 describe("grade tool & prompt", () => {
   it("problemId enum은 학습지 문제 목록과 같다", () => {
-    const schema = buildGradeTool(["T1", "C1"]).input_schema as {
+    const schema = buildGradeItemsTool(["T1", "C1"]).input_schema as {
       properties: { items: { items: { properties: { problemId: { enum: string[] } } } } };
     };
     expect(schema.properties.items.items.properties.problemId.enum).toEqual(["T1", "C1"]);
@@ -81,5 +82,22 @@ describe("storage", () => {
   it("최근 것이 앞에 오고 30개까지만 보관한다", () => {
     for (let i = 0; i < 32; i++) saveWorksheet(worksheet);
     expect(listWorksheets()).toHaveLength(30);
+  });
+});
+
+describe("채점 나눠 하기", () => {
+  it("쌍둥이 2문제, 확인 문제는 2문제씩 묶는다", () => {
+    expect(gradeGroups(worksheet)).toEqual([["T1", "T2"], ["C1", "C2"], ["C3", "C4"]]);
+  });
+
+  it("요청한 문제만 남기고 빠진 문제는 '사진에 없음'", () => {
+    const r = normalizeGradeItems({ items: [item("C1", "correct"), item("T1", "wrong")] }, worksheet, ["C1", "C2"]);
+    expect(r.items.map((i) => [i.problemId, i.status])).toEqual([["C1", "correct"], ["C2", "not_found"]]);
+  });
+
+  it("일부만 채점할 때 요청 글에 그 문제만 들어간다", () => {
+    const text = gradeUserText(worksheet, ["C3"]);
+    expect(text).toContain("[C3]");
+    expect(text).not.toContain("[T1]");
   });
 });

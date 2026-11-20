@@ -27,32 +27,78 @@ export function curriculumListText(data: Curriculum): string {
     .join("\n");
 }
 
-export function analyzeSystem(data: Curriculum): string {
-  return `당신은 한국 중학교 수학 교사이자 문제 출제 전문가입니다. 학생이 틀린 문제를 분석해 오답 훈련 학습지를 만듭니다.
+const COMMON_RULES = `## 공통 규칙
+- 모든 문제는 직접 풀어 보고 answer가 맞는지 확인한 뒤 쓴다. (만든 뒤 별도 검산을 거친다)
+- 객관식 문제의 answer는 보기 번호 기호로 시작한다(예: ③ $x=2$).
+- 해당 학년까지 배운 개념만 쓴다. 고등학교 개념·용어 금지.
+- 모든 글은 한국어로, 간결하게 쓴다.
+
+${LATEX_RULES}`;
+
+/** 1단계: 원래 문제 풀이 + 단원 매핑 + 틀린 지점 */
+export function mapSystem(data: Curriculum): string {
+  return `당신은 한국 중학교 수학 교사입니다. 학생이 틀린 문제를 분석합니다.
 
 ## 교육과정 단원 목록 (${data.version} 개정) — 반드시 이 목록 안에서만 고른다
 ${curriculumListText(data)}
 
-## 작업 순서
-1. original: 원래 문제를 직접 풀어 answer와 solution을 쓴다.
+## 할 일
+1. original: 원래 문제를 직접 풀어 answer와 solution을 쓴다(text·choices는 받은 그대로).
 2. mapping: 이 문제를 푸는 데 핵심이 되는 개념의 단원을 고른다. subtopic은 그 단원의 소주제 중 하나를 그대로 쓴다.
    relatedUnitIds에는 풀이에 함께 쓰이는 다른 단원을 넣는다. confidence가 0.8 미만이면 candidates에 다른 후보를 넣는다.
-3. errorPoint: 학생 풀이(있으면)를 보고, 없으면 이 유형에서 가장 흔한 실수를 근거로 틀렸을 가능성이 높은 지점을 쓴다.
-4. twins: 쌍둥이 문제 정확히 2개.
-   - 유지: 핵심 개념, 풀이 단계 수, 문제 유형(객관식이면 객관식, 보기 수도 같게), 난이도, 원래 문제의 함정 포인트
-   - 변경: 수치, 문자, 실생활 맥락
-   - 금지: 원래 문제와 같은 정답, 중학생 수준에서 지저분한 답(복잡한 분수·소수)
-   - 두 번째 쌍둥이는 errorPoint의 함정을 조금 더 분명하게 드러내도록 만든다.
-5. concept: 관련 개념 설명. summary는 중학생 눈높이로 3~5문장, keyFormulas 2~4개, commonMistakes 2~4개(틀린 예 → 바른 예), example은 쉬운 예제 1개.
-6. checkProblems: 3~5개. 쉬운 것(개념 자체 확인)부터 원래 문제 수준까지 차례로. 최소 1개는 errorPoint를 직접 겨냥한다.
+3. errorPoint: 학생 풀이(있으면)를 보고, 없으면 이 유형에서 가장 흔한 실수를 근거로 틀렸을 가능성이 높은 지점을 1~2문장으로 쓴다.
 
-## 공통 규칙
-- 모든 문제는 직접 풀어 보고 answer가 맞는지 확인한 뒤 쓴다. (만든 뒤 별도 검산을 거친다)
-- 객관식 문제의 answer는 보기 번호 기호로 시작한다(예: ③ $x=2$).
-- 해당 학년까지 배운 개념만 쓴다. 고등학교 개념·용어 금지.
-- 모든 글은 한국어로 쓴다.
+${COMMON_RULES}`;
+}
 
-${LATEX_RULES}`;
+export type AnalyzePart = "twins" | "concept" | "check1" | "check2";
+
+const PART_TASK: Record<AnalyzePart, string> = {
+  twins: `쌍둥이 문제를 정확히 2개 만든다.
+- 유지: 핵심 개념, 풀이 단계 수, 문제 유형(객관식이면 객관식, 보기 수도 같게), 난이도, 원래 문제의 함정 포인트
+- 변경: 수치, 문자, 실생활 맥락 (그림이 필요한 문제면 꼭짓점 이름·모양을 바꾸고 figure로 그림을 준다)
+- 금지: 원래 문제와 같은 정답, 중학생 수준에서 지저분한 답(복잡한 분수·소수)
+- 두 번째 쌍둥이는 틀린 지점의 함정을 조금 더 분명하게 드러내도록 만든다.`,
+  concept: `관련 개념 설명(concept)을 만든다.
+- title: 개념 이름, summary: 중학생 눈높이로 3~5문장
+- keyFormulas: 꼭 기억할 공식·규칙 2~4개
+- commonMistakes: 이 유형에서 자주 하는 실수 2~4개 (틀린 예 → 바른 예)
+- example: 쉬운 예제 1개(풀이·답 포함)`,
+  check1: `개념 확인 문제를 정확히 2개 만든다. 이 2개는 쉬운 단계다.
+- 1번: 핵심 개념·용어 자체를 확인하는 아주 쉬운 문제 (difficulty 1)
+- 2번: 개념을 한 번 적용하는 쉬운 문제 (difficulty 1)`,
+  check2: `개념 확인 문제를 정확히 2개 만든다. 이 2개는 적용 단계다.
+- 1번: 틀린 지점을 직접 겨냥하는 문제 (difficulty 2)
+- 2번: 원래 문제와 비슷한 수준의 문제, 단 쌍둥이 문제와는 다른 상황 (difficulty 2~3)`,
+};
+
+/** 2단계: 단원 분석 결과를 바탕으로 학습지 한 부분을 만든다 */
+export function partSystem(part: AnalyzePart): string {
+  return `당신은 한국 중학교 수학 교사이자 문제 출제 전문가입니다. 학생이 틀린 문제로 오답 훈련 학습지의 한 부분을 만듭니다.
+
+## 할 일
+${PART_TASK[part]}
+
+${COMMON_RULES}`;
+}
+
+/** 2단계 요청에 함께 보낼 분석 결과 */
+export function partUserText(
+  problem: RecognizedProblem,
+  map: Pick<AnalysisResult, "original" | "mapping" | "errorPoint">,
+  unitLabel: string,
+): string {
+  const lines = ["## 학생이 틀린 문제", problem.text];
+  if (problem.choices?.length) lines.push("", "보기:", ...problem.choices.map((c, i) => `${i + 1}) ${c}`));
+  if (problem.figure) lines.push("", "그림 정보(JSON):", JSON.stringify(problem.figure));
+  lines.push(
+    "",
+    `## 정답: ${map.original.answer}`,
+    `## 풀이: ${map.original.solution}`,
+    `## 단원: ${unitLabel} (${map.mapping.subtopic})`,
+    `## 틀린 지점: ${map.errorPoint}`,
+  );
+  return lines.join("\n");
 }
 
 export const SOLVE_SYSTEM = `당신은 한국 중학교 수학 문제를 정확하게 푸는 검산 담당자입니다.
@@ -109,6 +155,7 @@ export const GRADE_SYSTEM =`당신은 한국 중학교 수학 교사입니다. �
 6. feedback은 격려하되 정확하게 쓴다. 틀렸는데 맞았다고 하지 않는다.
 7. 학생이 원래 틀렸던 실수(아래 "원래 오답의 실수")를 또 했는지 특히 살핀다.
 8. 정답지의 정답이 틀렸다고 판단되면 학생 답을 기준으로 다시 확인하고 photoNote에 알린다.
+9. 요청받은 문제만 채점한다. 사진에 다른 문제가 있어도 items에 넣지 않는다.
 
 ## 공통 규칙
 - 해당 학년까지 배운 개념만 쓴다. 고등학교 개념·용어 금지.
@@ -116,27 +163,47 @@ export const GRADE_SYSTEM =`당신은 한국 중학교 수학 교사입니다. �
 
 ${LATEX_RULES}`;
 
-export function gradeUserText(data: AnalysisResult): string {
+export function gradeUserText(data: AnalysisResult, onlyIds?: string[]): string {
   const lines = [
     `## 학습지 개념: ${data.concept.title}`,
     `## 원래 오답의 실수: ${data.errorPoint}`,
     "",
     "## 문제와 정답",
   ];
-  for (const { id, label, problem } of gradableProblems(data)) {
+  const targets = gradableProblems(data).filter((p) => !onlyIds || onlyIds.includes(p.id));
+  for (const { id, label, problem } of targets) {
     lines.push("", `### [${id}] ${label}`, problem.text);
     if (problem.choices?.length) lines.push(`보기: ${problem.choices.map((c, i) => `${i + 1}) ${c}`).join("  ")}`);
     lines.push(`정답: ${problem.answer}`, `모범 풀이: ${problem.solution}`);
   }
-  lines.push("", "첨부한 사진은 학생이 이 학습지를 직접 푼 것입니다. 문제마다 채점해 주세요.");
+  lines.push(
+    "",
+    onlyIds
+      ? `첨부한 사진은 학생이 이 학습지를 직접 푼 것입니다. 이번에는 위의 ${targets.map((t) => t.id).join(", ")} 문제만 채점해 주세요.`
+      : "첨부한 사진은 학생이 이 학습지를 직접 푼 것입니다. 문제마다 채점해 주세요.",
+  );
   return lines.join("\n");
 }
 
+export const GRADE_SUMMARY_SYSTEM = `당신은 한국 중학교 수학 교사입니다. 학생이 오답 훈련 학습지를 푼 채점 결과를 보고, 학생에게 총평과 다음 공부 방향을 존댓말로 짧게 알려 줍니다.
+- summary: 2~3문장. 잘한 점과 고칠 점을 구체적으로. 원래 오답의 실수를 반복했는지 언급한다.
+- nextStep: 1~2문장. 다음에 무엇을 연습하면 좋을지.`;
+
+export function gradeSummaryUserText(data: AnalysisResult, items: { problemId: string; status: string; errorStep?: string }[]): string {
+  return [
+    `## 학습지 개념: ${data.concept.title}`,
+    `## 원래 오답의 실수: ${data.errorPoint}`,
+    "## 채점 결과",
+    ...items.map((i) => `- ${i.problemId}: ${i.status}${i.errorStep ? ` — ${i.errorStep}` : ""}`),
+  ].join("\n");
+}
+
+/** 1단계(단원 분석) 요청 글 */
 export function analyzeUserText(problem: RecognizedProblem, forcedUnitId?: string): string {
   const lines = [`## 학생이 틀린 문제`, problem.text];
   if (problem.choices?.length) lines.push("", "보기:", ...problem.choices.map((c, i) => `${i + 1}) ${c}`));
   if (problem.studentWork) lines.push("", "## 학생이 쓴 풀이·답", problem.studentWork);
-  if (forcedUnitId) lines.push("", `## 지시`, `이 문제는 반드시 단원 ${forcedUnitId}로 분류하고, 그 단원 개념을 중심으로 학습지를 만드세요.`);
+  if (forcedUnitId) lines.push("", `## 지시`, `이 문제는 반드시 단원 ${forcedUnitId}로 분류하세요.`);
   lines.push("", "첨부 사진이 있으면 도형·그래프 확인에 참고하세요.");
   return lines.join("\n");
 }

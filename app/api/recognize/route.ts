@@ -30,6 +30,7 @@ export async function POST(req: Request) {
           content: [imageBlock(body.data.image), { type: "text", text: "이 사진의 수학 문제를 읽어 주세요." }],
         }),
       ),
+      0, // 실행 시간 제한 때문에 서버에서는 재시도하지 않는다(형식 오류 재시도는 클라이언트가 함)
     );
     return Response.json(result);
   } catch (err) {

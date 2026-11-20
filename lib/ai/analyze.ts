@@ -1,4 +1,8 @@
-import { AnalysisResultSchema, RecognizeResultSchema, type AnalysisResult, type Curriculum, type RecognizeResult } from "@/lib/schemas";
+import { z } from "zod";
+import {
+  AnalysisResultSchema, ProblemSchema, RecognizeResultSchema,
+  type AnalysisResult, type Curriculum, type RecognizeResult,
+} from "@/lib/schemas";
 import { curriculum, getUnit } from "@/lib/curriculum";
 import { AiOutputError } from "./errors";
 
@@ -8,21 +12,31 @@ export function normalizeRecognition(raw: unknown): RecognizeResult {
   return { ...parsed, problems: parsed.problems.filter((p) => p.text.trim().length > 0) };
 }
 
+// ── 학습지는 여러 부분으로 나눠 만든다 ──
+
+export const MapPartSchema = AnalysisResultSchema.pick({ original: true, mapping: true, errorPoint: true });
+export const TwinsPartSchema = z.object({ twins: z.array(ProblemSchema).length(2) });
+export const ConceptPartSchema = AnalysisResultSchema.pick({ concept: true });
+export const CheckPartSchema = z.object({ checkProblems: z.array(ProblemSchema).min(2).max(3) });
+
+export type MapPart = z.infer<typeof MapPartSchema>;
+export type TwinsPart = z.infer<typeof TwinsPartSchema>;
+export type ConceptPart = z.infer<typeof ConceptPartSchema>;
+export type CheckPart = z.infer<typeof CheckPartSchema>;
+
 /**
- * AI 분석 결과를 검증하고 정리한다.
+ * 단원 분석 결과를 검증하고 정리한다.
  * - 단원 id가 실제로 있는지 확인 (없으면 재시도 대상 오류)
  * - 사용자가 단원을 지정했으면 그 단원으로 고정하고 신뢰도 1
  * - 관련·후보 단원에서 없는 id와 중복 제거
  */
-export function normalizeAnalysis(raw: unknown, opts: { forcedUnitId?: string } = {}, data: Curriculum = curriculum): AnalysisResult {
-  const parsed = AnalysisResultSchema.parse(raw);
+export function normalizeMap(raw: unknown, opts: { forcedUnitId?: string } = {}, data: Curriculum = curriculum): MapPart {
+  const parsed = MapPartSchema.parse(raw);
   const unitId = opts.forcedUnitId ?? parsed.mapping.unitId;
   if (!getUnit(unitId, data)) throw new AiOutputError(`교육과정에 없는 단원 id: ${unitId}`);
 
   const exists = (id: string) => id !== unitId && !!getUnit(id, data);
-  const candidates = opts.forcedUnitId
-    ? undefined
-    : parsed.mapping.candidates?.filter((c) => exists(c.unitId));
+  const candidates = opts.forcedUnitId ? undefined : parsed.mapping.candidates?.filter((c) => exists(c.unitId));
 
   return {
     ...parsed,
@@ -34,6 +48,22 @@ export function normalizeAnalysis(raw: unknown, opts: { forcedUnitId?: string } 
       candidates: candidates?.length ? candidates : undefined,
     },
   };
+}
+
+/** 나눠 만든 부분을 하나의 학습지로 합친다. */
+export function assembleWorksheet(map: MapPart, twins: TwinsPart, concept: ConceptPart, checks: CheckPart[]): AnalysisResult {
+  return AnalysisResultSchema.parse({
+    ...map,
+    ...twins,
+    ...concept,
+    checkProblems: checks.flatMap((c) => c.checkProblems).slice(0, 5),
+  });
+}
+
+/** 한 번에 받은 전체 분석 결과 검증(테스트·이전 데이터용) */
+export function normalizeAnalysis(raw: unknown, opts: { forcedUnitId?: string } = {}, data: Curriculum = curriculum): AnalysisResult {
+  const parsed = AnalysisResultSchema.parse(raw);
+  return { ...parsed, ...normalizeMap(parsed, opts, data) };
 }
 
 /** 단원 확인을 사용자에게 물어야 하는 신뢰도 기준. */

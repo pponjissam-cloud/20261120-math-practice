@@ -105,11 +105,11 @@ export const adjudicateTool: Anthropic.Tool = {
   },
 };
 
-/** 학습지 풀이 사진 채점. problemId는 학습지에 실제로 있는 문제만 고르게 한다. */
-export function buildGradeTool(problemIds: string[]): Anthropic.Tool {
+/** 학습지 풀이 사진 채점(일부 문제씩). problemId는 이번에 채점할 문제만 고르게 한다. */
+export function buildGradeItemsTool(problemIds: string[]): Anthropic.Tool {
   return {
     name: "report_grading",
-    description: "학생이 학습지에 직접 푼 풀이를 채점하고 첨삭한 결과를 보고한다.",
+    description: "학생이 학습지에 직접 푼 풀이를 문제마다 채점하고 첨삭한 결과를 보고한다.",
     input_schema: {
       type: "object",
       properties: {
@@ -130,21 +130,34 @@ export function buildGradeTool(problemIds: string[]): Anthropic.Tool {
             required: ["problemId", "status", "feedback", "explanation"],
           },
         },
-        summary: { type: "string", description: "전체 총평 2~3문장" },
-        nextStep: { type: "string", description: "다음에 무엇을 공부하면 좋을지" },
         photoNote: { type: "string", description: "사진이 흐림·잘림, 정답지가 의심스러움 등 알릴 점" },
       },
-      required: ["items", "summary", "nextStep"],
+      required: ["items"],
     },
   };
 }
 
-/** 단원 id를 교육과정 목록 안에서만 고르도록 enum으로 제한한다. */
-export function buildAnalyzeTool(data: Curriculum): Anthropic.Tool {
+export const gradeSummaryTool: Anthropic.Tool = {
+  name: "report_summary",
+  description: "채점 결과 전체에 대한 총평과 다음 공부를 보고한다.",
+  input_schema: {
+    type: "object",
+    properties: {
+      summary: { type: "string", description: "전체 총평 2~3문장" },
+      nextStep: { type: "string", description: "다음에 무엇을 공부하면 좋을지 1~2문장" },
+    },
+    required: ["summary", "nextStep"],
+  },
+};
+
+// ── 학습지 만들기: 여러 개의 짧은 요청으로 나눈다(호스팅 서비스의 실행 시간 제한 대비) ──
+
+/** 1단계: 원래 문제 풀이 + 단원 매핑 + 틀린 지점. 단원 id는 교육과정 목록 안에서만 고르게 enum으로 제한한다. */
+export function buildMapTool(data: Curriculum): Anthropic.Tool {
   const unitIds = data.units.map((u) => u.id);
   return {
-    name: "create_worksheet",
-    description: "오답 분석 결과와 학습지 내용을 만든다.",
+    name: "report_mapping",
+    description: "원래 문제를 풀고, 교육과정 단원과 틀린 지점을 보고한다.",
     input_schema: {
       type: "object",
       properties: {
@@ -181,21 +194,50 @@ export function buildAnalyzeTool(data: Curriculum): Anthropic.Tool {
           required: ["unitId", "subtopic", "confidence", "reason", "relatedUnitIds"],
         },
         errorPoint: { type: "string" },
-        twins: { type: "array", items: problem, minItems: 2, maxItems: 2 },
-        concept: {
-          type: "object",
-          properties: {
-            title: { type: "string" },
-            summary: { type: "string" },
-            keyFormulas: { type: "array", items: { type: "string" } },
-            commonMistakes: { type: "array", items: { type: "string" } },
-            example: problem,
-          },
-          required: ["title", "summary", "keyFormulas", "commonMistakes", "example"],
-        },
-        checkProblems: { type: "array", items: problem, minItems: 3, maxItems: 5 },
       },
-      required: ["original", "mapping", "errorPoint", "twins", "concept", "checkProblems"],
+      required: ["original", "mapping", "errorPoint"],
     },
   };
 }
+
+export const twinsTool: Anthropic.Tool = {
+  name: "report_twins",
+  description: "쌍둥이 문제 2개를 보고한다.",
+  input_schema: {
+    type: "object",
+    properties: { twins: { type: "array", items: problem, minItems: 2, maxItems: 2 } },
+    required: ["twins"],
+  },
+};
+
+export const conceptTool: Anthropic.Tool = {
+  name: "report_concept",
+  description: "관련 개념 설명을 보고한다.",
+  input_schema: {
+    type: "object",
+    properties: {
+      concept: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          summary: { type: "string" },
+          keyFormulas: { type: "array", items: { type: "string" } },
+          commonMistakes: { type: "array", items: { type: "string" } },
+          example: problem,
+        },
+        required: ["title", "summary", "keyFormulas", "commonMistakes", "example"],
+      },
+    },
+    required: ["concept"],
+  },
+};
+
+export const checkTool: Anthropic.Tool = {
+  name: "report_check_problems",
+  description: "개념 확인 문제 2개를 보고한다.",
+  input_schema: {
+    type: "object",
+    properties: { checkProblems: { type: "array", items: problem, minItems: 2, maxItems: 2 } },
+    required: ["checkProblems"],
+  },
+};

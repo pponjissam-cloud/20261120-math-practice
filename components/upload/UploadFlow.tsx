@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AnalysisResult, RecognizedProblem } from "@/lib/schemas";
 import { resizeImage } from "@/lib/client/image";
-import { analyze, recognize, verifySafe } from "@/lib/client/api";
+import { analyzeMap, buildWorksheet, recognize, verifySafe } from "@/lib/client/api";
+import type { MapPart } from "@/lib/ai/analyze";
 import { saveWorksheet } from "@/lib/client/storage";
 import { getUnit, semesterLabel } from "@/lib/curriculum";
 import { LOW_CONFIDENCE } from "@/lib/ai/analyze";
@@ -13,7 +14,7 @@ import { MathText } from "@/components/math/MathText";
 import { ApiKeyPanel } from "@/components/settings/ApiKeyPanel";
 import { APP_VERSION } from "@/lib/version";
 
-type Step = "upload" | "recognizing" | "review" | "analyzing" | "verifying" | "pickUnit";
+type Step = "upload" | "recognizing" | "review" | "mapping" | "analyzing" | "verifying" | "pickUnit";
 
 const unitName = (id: string) => {
   const u = getUnit(id);
@@ -29,15 +30,28 @@ export function UploadFlow() {
   const [selected, setSelected] = useState(0);
   const [draft, setDraft] = useState<RecognizedProblem | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  /** 단원 분석(1단계) 결과. 신뢰도가 낮으면 사용자에게 단원을 확인받는다. */
+  const [result, setResult] = useState<MapPart | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
   const [keyReady, setKeyReady] = useState(true);
 
-  const finish = async (data: AnalysisResult) => {
-    setStep("verifying");
-    const verified = await verifySafe(data);
-    const saved = saveWorksheet(verified);
-    router.push(`/worksheet?id=${saved.id}`);
-  };
+  /** 2단계(학습지 부분별 생성) → 3단계(정답 검증) → 저장 후 학습지 화면으로 */
+  async function finish(map: MapPart) {
+    if (!draft) return;
+    setError(null);
+    try {
+      setStep("analyzing");
+      const data: AnalysisResult = await buildWorksheet(draft, map, (done, total, label) => setProgress({ done, total, label }));
+      setStep("verifying");
+      const verified = await verifySafe(data, (done, total, label) => setProgress({ done, total, label }));
+      const saved = saveWorksheet(verified);
+      router.push(`/worksheet?id=${saved.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setProgress(null);
+      setStep("review");
+    }
+  }
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -79,15 +93,17 @@ export function UploadFlow() {
   async function runAnalyze(forcedUnitId?: string) {
     if (!draft) return;
     setError(null);
-    setStep("analyzing");
+    setStep("mapping");
+    setProgress(null);
     try {
-      const data = await analyze(draft, image ?? undefined, forcedUnitId);
-      if (!forcedUnitId && data.mapping.confidence < LOW_CONFIDENCE) {
-        setResult(data);
+      const map = await analyzeMap(draft, image ?? undefined, forcedUnitId);
+      // 단원이 애매하면 학습지를 만들기 전에 먼저 확인받는다(불필요한 생성 비용 절약)
+      if (!forcedUnitId && map.mapping.confidence < LOW_CONFIDENCE) {
+        setResult(map);
         setStep("pickUnit");
         return;
       }
-      finish(data);
+      await finish(map);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setStep("review");
@@ -144,13 +160,24 @@ export function UploadFlow() {
         </>
       )}
 
-      {(step === "recognizing" || step === "analyzing" || step === "verifying") && (
+      {(step === "recognizing" || step === "mapping" || step === "analyzing" || step === "verifying") && (
         <div className="rounded-xl bg-white p-10 text-center" aria-live="polite">
           <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
           <p className="font-semibold">
-            {step === "recognizing" ? "사진에서 문제를 읽고 있어요…" : step === "analyzing" ? "단원을 찾고 학습지를 만들고 있어요… (1/2)" : "만든 문제의 정답을 다시 풀어 확인하고 있어요… (2/2)"}
+            {step === "recognizing" && "사진에서 문제를 읽고 있어요…"}
+            {step === "mapping" && "1/3 · 문제를 풀고 교육과정 단원을 찾고 있어요…"}
+            {step === "analyzing" && "2/3 · 쌍둥이 문제·개념 설명·확인 문제를 만들고 있어요…"}
+            {step === "verifying" && "3/3 · 만든 문제의 정답을 다시 풀어 확인하고 있어요…"}
           </p>
-          {step !== "recognizing" && <p className="mt-1 text-sm text-slate-500">1분 정도 걸릴 수 있습니다.</p>}
+          {progress && (step === "analyzing" || step === "verifying") && (
+            <div className="mx-auto mt-4 max-w-xs">
+              <div className="h-2 overflow-hidden rounded bg-slate-200">
+                <div className="h-full bg-blue-600 transition-all" style={{ width: `${Math.round((progress.done / Math.max(1, progress.total)) * 100)}%` }} />
+              </div>
+              <p className="mt-1 text-xs text-slate-500">{progress.done}/{progress.total}{progress.done > 0 ? ` · ${progress.label} 완료` : ""}</p>
+            </div>
+          )}
+          {step !== "recognizing" && <p className="mt-2 text-sm text-slate-500">모두 합쳐 1~2분 정도 걸릴 수 있습니다.</p>}
         </div>
       )}
 
