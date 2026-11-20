@@ -4,6 +4,7 @@ import { ANALYZE_PARTS, partSystem, partUserText } from "@/lib/ai/prompts";
 import { conceptTool, problemTool } from "@/lib/ai/tools";
 import { ConceptPartSchema, MapPartSchema, ProblemPartSchema, unwrapPart } from "@/lib/ai/analyze";
 import { toErrorResponse } from "@/lib/ai/http";
+import { AiOutputError } from "@/lib/ai/errors";
 import { getUnit, semesterLabel } from "@/lib/curriculum";
 import { RecognizedProblemSchema } from "@/lib/schemas";
 
@@ -36,7 +37,15 @@ export async function POST(req: Request) {
       content: partUserText(problem, map, unitLabel),
       apiKey: userKeyFrom(req),
     });
-    return Response.json({ result: schema.parse(unwrapPart(part, raw)) });
+    const unwrapped = unwrapPart(part, raw);
+    const parsed = schema.safeParse(unwrapped);
+    if (!parsed.success) {
+      // 무엇을 받았는지 함께 알려 원인을 찾을 수 있게 한다
+      const issue = parsed.error.issues[0];
+      const keys = raw && typeof raw === "object" ? Object.keys(raw).join(", ") : typeof raw;
+      throw new AiOutputError(`${issue?.path.join(".")}: ${issue?.message} (받은 항목: ${keys})`);
+    }
+    return Response.json({ result: parsed.data });
   } catch (err) {
     return toErrorResponse(err);
   }

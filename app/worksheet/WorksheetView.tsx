@@ -1,22 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { AnalysisResult } from "@/lib/schemas";
 import { Worksheet } from "@/components/worksheet/Worksheet";
 import { downloadDocx, downloadPdf } from "@/lib/client/download";
 import { verifySafe } from "@/lib/client/api";
 
-type Busy = "docx" | "pdf" | "verify" | null;
+type Busy = "docx" | "pdf" | null;
 
-export function WorksheetView({ data, code, initialIncludeAnswers = false, onChange }: {
+export function WorksheetView({ data, code, initialIncludeAnswers = false, autoVerify = false, onChange }: {
   data: AnalysisResult;
   code?: string;
   /** 학생이 풀 학습지는 정답지를 빼고 인쇄하는 경우가 많으므로 기본값은 "포함 안 함" */
   initialIncludeAnswers?: boolean;
+  /** 방금 만든 학습지면 화면을 보여 준 뒤 정답 검증을 자동으로 시작한다 */
+  autoVerify?: boolean;
   /** 정답 검증 등으로 학습지가 바뀌었을 때 저장 */
   onChange?: (data: AnalysisResult) => void;
 }) {
+  const [verifying, setVerifying] = useState<{ done: number; total: number } | null>(null);
+  const started = useRef(false);
   const [includeAnswers, setIncludeAnswers] = useState(initialIncludeAnswers);
   const [busy, setBusy] = useState<Busy>(null);
   const [message, setMessage] = useState<{ kind: "info" | "error"; text: string } | null>(null);
@@ -48,10 +52,26 @@ export function WorksheetView({ data, code, initialIncludeAnswers = false, onCha
     }
   });
 
-  const onVerify = () => run("verify", async () => {
-    const verified = await verifySafe(data);
-    onChange?.(verified);
-  });
+  /** 정답 검증: 학습지를 보면서 기다릴 수 있도록 다른 버튼을 막지 않는다 */
+  async function onVerify() {
+    if (verifying || !onChange) return;
+    setVerifying({ done: 0, total: 1 });
+    try {
+      const verified = await verifySafe(data, (done, total) => setVerifying({ done, total }));
+      onChange(verified);
+    } finally {
+      setVerifying(null);
+    }
+  }
+
+  useEffect(() => {
+    if (autoVerify && !data.verification && onChange && !started.current) {
+      started.current = true;
+      void onVerify();
+    }
+    // 처음 한 번만 실행
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const v = data.verification;
 
@@ -90,11 +110,20 @@ export function WorksheetView({ data, code, initialIncludeAnswers = false, onCha
             {v.corrected > 0 && ` (정답 ${v.corrected}개를 고침)`}
           </p>
         )}
-        {(!v || v.failed) && (
+        {verifying && (
+          <p className="flex items-center gap-3 rounded bg-blue-50 p-3 text-blue-900" role="status">
+            <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+            <span className="flex-1">
+              만든 문제의 정답을 다시 풀어 확인하고 있어요… ({verifying.done}/{verifying.total})
+              <span className="block text-xs text-blue-700">학습지는 지금 봐도 됩니다. 인쇄·배포는 확인이 끝난 뒤를 권장해요.</span>
+            </span>
+          </p>
+        )}
+        {!verifying && (!v || v.failed) && (
           <p className="flex items-center gap-3 rounded bg-amber-50 p-3 text-amber-900">
             <span className="flex-1">{v?.failed ? "정답 검증을 하지 못했습니다." : "아직 정답 검증을 하지 않은 학습지입니다."} 인쇄 전에 검증하는 것을 권장합니다.</span>
-            <button type="button" onClick={onVerify} disabled={busy !== null || !onChange} className="rounded bg-amber-600 px-3 py-1 font-semibold text-white disabled:opacity-50">
-              {busy === "verify" ? "검증 중… (1분 정도)" : "정답 검증하기"}
+            <button type="button" onClick={onVerify} disabled={!!verifying || !onChange} className="rounded bg-amber-600 px-3 py-1 font-semibold text-white disabled:opacity-50">
+              정답 검증하기
             </button>
           </p>
         )}

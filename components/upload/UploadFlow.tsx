@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AnalysisResult, RecognizedProblem } from "@/lib/schemas";
 import { resizeImage } from "@/lib/client/image";
-import { analyzeMap, buildWorksheet, recognize, verifySafe } from "@/lib/client/api";
+import { analyzeMap, buildWorksheet, recognize } from "@/lib/client/api";
 import type { MapPart } from "@/lib/ai/analyze";
 import { saveWorksheet } from "@/lib/client/storage";
 import { getUnit, semesterLabel } from "@/lib/curriculum";
@@ -35,17 +35,15 @@ export function UploadFlow() {
   const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
   const [keyReady, setKeyReady] = useState(true);
 
-  /** 2단계(학습지 부분별 생성) → 3단계(정답 검증) → 저장 후 학습지 화면으로 */
+  /** 2단계(학습지 부분별 생성) → 저장 후 학습지 화면으로. 정답 검증은 학습지를 보여 준 뒤 그 화면에서 진행한다. */
   async function finish(map: MapPart) {
     if (!draft) return;
     setError(null);
     try {
       setStep("analyzing");
       const data: AnalysisResult = await buildWorksheet(draft, map, (done, total, label) => setProgress({ done, total, label }));
-      setStep("verifying");
-      const verified = await verifySafe(data, (done, total, label) => setProgress({ done, total, label }));
-      const saved = saveWorksheet(verified);
-      router.push(`/worksheet?id=${saved.id}`);
+      const saved = saveWorksheet(data);
+      router.push(`/worksheet?id=${saved.id}&verify=1`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setProgress(null);
@@ -165,9 +163,8 @@ export function UploadFlow() {
           <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
           <p className="font-semibold">
             {step === "recognizing" && "사진에서 문제를 읽고 있어요…"}
-            {step === "mapping" && "1/3 · 문제를 풀고 교육과정 단원을 찾고 있어요…"}
-            {step === "analyzing" && "2/3 · 쌍둥이 문제·개념 설명·확인 문제를 만들고 있어요…"}
-            {step === "verifying" && "3/3 · 만든 문제의 정답을 다시 풀어 확인하고 있어요…"}
+            {step === "mapping" && "1/2 · 문제를 풀고 교육과정 단원을 찾고 있어요…"}
+            {step === "analyzing" && "2/2 · 쌍둥이 문제·개념 설명·확인 문제를 만들고 있어요…"}
           </p>
           {progress && (step === "analyzing" || step === "verifying") && (
             <div className="mx-auto mt-4 max-w-xs">
@@ -177,7 +174,7 @@ export function UploadFlow() {
               <p className="mt-1 text-xs text-slate-500">{progress.done}/{progress.total}{progress.done > 0 ? ` · ${progress.label} 완료` : ""}</p>
             </div>
           )}
-          {step !== "recognizing" && <p className="mt-2 text-sm text-slate-500">모두 합쳐 1~2분 정도 걸릴 수 있습니다.</p>}
+          {step !== "recognizing" && <p className="mt-2 text-sm text-slate-500">보통 30초~1분 걸립니다. 정답 확인은 학습지를 보여 준 뒤 이어서 진행해요.</p>}
         </div>
       )}
 

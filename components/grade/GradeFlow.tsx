@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { GradeResult } from "@/lib/schemas";
 import { getUnit, semesterLabel } from "@/lib/curriculum";
 import { gradableProblems } from "@/lib/grade";
-import { analyze, grade, verifySafe } from "@/lib/client/api";
+import { analyze, grade } from "@/lib/client/api";
 import { resizeImage } from "@/lib/client/image";
 import {
   getCurrentWorksheet, getWorksheet, listWorksheets, saveGrade, saveWorksheet, setCurrentWorksheet, type SavedWorksheet,
@@ -104,8 +104,8 @@ export function GradeFlow() {
         figure: p.problem.figure,
         studentWork: item?.studentWork,
       });
-      const saved = saveWorksheet(await verifySafe(data));
-      router.push(`/worksheet?id=${saved.id}`);
+      const saved = saveWorksheet(data);
+      router.push(`/worksheet?id=${saved.id}&verify=1`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setRetryingId(null);

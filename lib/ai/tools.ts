@@ -205,7 +205,9 @@ export const problemTool: Anthropic.Tool = {
   description: "만든 문제 1개를 보고한다.",
   input_schema: {
     type: "object",
-    properties: { problem },
+    properties: {
+      problem: { ...problem, description: "문제 1개. 문제 글(text)·answer·solution·difficulty를 모두 이 객체 안에 넣는다" },
+    },
     required: ["problem"],
   },
 };

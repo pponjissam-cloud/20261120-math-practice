@@ -8,7 +8,7 @@ import { WorksheetView } from "./WorksheetView";
 
 /** ?id=코드 → 그 학습지, 없으면 마지막 학습지, 그것도 없거나 ?sample=1이면 샘플. ?answers=1이면 정답지 포함으로 시작. */
 export function WorksheetLoader({ sample }: { sample: AnalysisResult }) {
-  const [state, setState] = useState<{ data: AnalysisResult; code?: string; answers: boolean } | null>(null);
+  const [state, setState] = useState<{ data: AnalysisResult; code?: string; answers: boolean; autoVerify?: boolean } | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -21,7 +21,7 @@ export function WorksheetLoader({ sample }: { sample: AnalysisResult }) {
     const saved = id ? getWorksheet(id) : getCurrentWorksheet();
     if (saved) {
       setCurrentWorksheet(saved.id);
-      setState({ data: saved.data, code: saved.id, answers });
+      setState({ data: saved.data, code: saved.id, answers, autoVerify: params.get("verify") === "1" });
     } else {
       setState({ data: sample, answers });
     }
@@ -42,7 +42,8 @@ export function WorksheetLoader({ sample }: { sample: AnalysisResult }) {
         data={state.data}
         code={code}
         initialIncludeAnswers={state.answers}
-        onChange={code ? (data) => { updateWorksheet(code, data); setState({ ...state, data }); } : undefined}
+        autoVerify={state.autoVerify}
+        onChange={code ? (data) => { updateWorksheet(code, data); setState((prev) => (prev ? { ...prev, data } : prev)); } : undefined}
       />
     </>
   );

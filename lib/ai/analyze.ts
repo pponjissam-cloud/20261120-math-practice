@@ -48,24 +48,58 @@ export function normalizeMap(raw: unknown, opts: { forcedUnitId?: string } = {},
   };
 }
 
+const ALIASES: Record<string, string[]> = {
+  text: ["text", "question", "statement", "content", "body", "문제"],
+  answer: ["answer", "correctAnswer", "correct_answer", "finalAnswer", "final_answer", "정답", "답"],
+  solution: ["solution", "explanation", "steps", "solution_steps", "풀이", "해설"],
+  choices: ["choices", "options", "보기"],
+  difficulty: ["difficulty", "level", "난이도"],
+};
+
+/** 문제 객체의 칸 이름이 조금 달라도(question, 정답, explanation …) 정해진 이름으로 맞춘다. */
+export function normalizeProblemKeys(o: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...o };
+  for (const [key, names] of Object.entries(ALIASES)) {
+    if (out[key] !== undefined && out[key] !== "") continue;
+    const found = names.find((n) => o[n] !== undefined && o[n] !== "");
+    if (found) out[key] = o[found];
+  }
+  return out;
+}
+
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+
 /**
- * AI가 {problem: {...}} 대신 문제 내용을 바로 보내거나, problem을 JSON 글로 보내는 경우도 받아 준다.
+ * AI가 정해진 모양 {problem: {...}} 과 다르게 보낸 경우도 받아 준다.
+ * - 문제 내용을 바로 보냄: {text, answer, ...}
+ * - problem 칸에 JSON 글을 넣음
+ * - problem 칸에 문제 글만 넣고 답·풀이는 바깥에 둠: {problem: "문제 글", answer, solution}
+ * - 칸 이름이 다름: question, 정답, explanation …
  */
 export function unwrapPart(part: string, raw: unknown): unknown {
-  if (!raw || typeof raw !== "object") return raw;
-  const o = raw as Record<string, unknown>;
-  const key = part === "concept" ? "concept" : "problem";
-  let inner = o[key];
+  if (!isObj(raw)) return raw;
+  if (part === "concept") {
+    let c: unknown = raw.concept;
+    if (typeof c === "string") {
+      try { c = JSON.parse(c); } catch { /* 그대로 */ }
+    }
+    const concept = isObj(c) ? c : "title" in raw || "summary" in raw ? raw : undefined;
+    if (!concept) return raw;
+    return { concept: { ...concept, example: isObj(concept.example) ? normalizeProblemKeys(concept.example) : concept.example } };
+  }
+
+  let inner: unknown = raw.problem;
   if (typeof inner === "string") {
     try {
       inner = JSON.parse(inner);
     } catch {
-      // 그대로 둔다
+      // JSON이 아닌 글이면 그것이 문제 글이고, 나머지 칸은 바깥에 있다
+      const { problem: text, ...rest } = raw;
+      return { problem: normalizeProblemKeys({ ...rest, text }) };
     }
   }
-  if (inner && typeof inner === "object") return { [key]: inner };
-  const looksLikeIt = part === "concept" ? "title" in o || "summary" in o : "text" in o || "answer" in o;
-  return looksLikeIt ? { [key]: o } : raw;
+  if (isObj(inner)) return { problem: normalizeProblemKeys(inner) };
+  return { problem: normalizeProblemKeys(raw) };
 }
 
 /** 나눠 만든 부분을 하나의 학습지로 합친다. (쌍둥이 2개, 확인 문제 3~5개 필요) */

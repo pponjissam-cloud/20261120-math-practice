@@ -66,3 +66,16 @@ describe("AI가 형식을 조금 다르게 보내도 받아 준다", () => {
     expect(r.problem.choices).toEqual(["1", "2", "3"]);
   });
 });
+
+describe("문제 칸 이름·모양이 달라도 받아 준다", () => {
+  it("problem 칸에 문제 글만 넣고 답·풀이는 바깥에 둔 경우", async () => {
+    const { ProblemPartSchema, unwrapPart } = await import("@/lib/ai/analyze");
+    const r = ProblemPartSchema.parse(unwrapPart("twin1", { problem: "꼬인 위치?", answer: "③ 3개", solution: "s", difficulty: 2 }));
+    expect(r.problem.text).toBe("꼬인 위치?");
+  });
+  it("question·정답·explanation 같은 다른 이름", async () => {
+    const { ProblemPartSchema, unwrapPart } = await import("@/lib/ai/analyze");
+    const r = ProblemPartSchema.parse(unwrapPart("twin1", { problem: { question: "q", 정답: 3, explanation: "e", level: 2 } }));
+    expect([r.problem.text, r.problem.answer, r.problem.solution]).toEqual(["q", "3", "e"]);
+  });
+});
